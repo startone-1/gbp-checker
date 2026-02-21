@@ -53,7 +53,7 @@ if st.button("🚀 AIで規約チェック開始", type="primary", use_container
         messages.append({"role": "user", "content": user_content})
 
         chat_completion = client.chat.completions.create(
-            model="llama-4-maverick",
+            model="meta-llama/llama-4-maverick-17b-128e-instruct",
             messages=messages,
             max_tokens=1500,
             temperature=0.3
