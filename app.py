@@ -37,8 +37,8 @@ if st.button("🚀 店舗名を自動抽出して診断を開始", type="primary
         st.error("スクショをアップロードしてください")
         st.stop()
 
-    with st.spinner("スクショから店舗名を自動抽出中..."):
-        ocr_messages = [{"role": "user", "content": [{"type": "text", "text": "この画像はGoogle Business Profileのスクショです。店舗名、住所、カテゴリを正確に抽出して教えてください。店舗名を最優先で。"}]}]
+    with st.spinner("スクショから店舗名・未返信レビューを自動抽出中..."):
+        ocr_messages = [{"role": "user", "content": [{"type": "text", "text": "この画像はGoogle Business Profileのスクショです。以下の情報を正確に抽出してください。\n1. 店舗名、住所、カテゴリ\n2. レビュー一覧があれば、総レビュー数と未返信レビュー数をカウントしてください。"}]}]
         for file in uploaded_files:
             bytes_data = file.getvalue()
             base64_image = base64.b64encode(bytes_data).decode("utf-8")
@@ -46,11 +46,11 @@ if st.button("🚀 店舗名を自動抽出して診断を開始", type="primary
             mime = f"image/{'jpeg' if ext in ['jpg','jpeg'] else ext}"
             ocr_messages[0]["content"].append({"type": "image_url", "image_url": {"url": f"data:{mime};base64,{base64_image}"}})
 
-        ocr_completion = client.chat.completions.create(model="meta-llama/llama-4-maverick-17b-128e-instruct", messages=ocr_messages, max_tokens=300, temperature=0.1)
+        ocr_completion = client.chat.completions.create(model="meta-llama/llama-4-maverick-17b-128e-instruct", messages=ocr_messages, max_tokens=400, temperature=0.1)
         store_info = ocr_completion.choices[0].message.content
 
-    st.success("✅ 店舗名を自動抽出しました")
-    st.info(f"**抽出された店舗情報**\n{store_info}")
+    st.success("✅ 店舗名と未返信レビューを自動抽出しました")
+    st.info(f"**抽出された情報**\n{store_info}")
 
     with st.spinner("精密分析中..."):
         system_prompt = f"""あなたはGoogle Business Profile公式Product Experts Programの全階層の知見を総合した最高位の専門家です。
@@ -58,18 +58,15 @@ if st.button("🚀 店舗名を自動抽出して診断を開始", type="primary
 このスクショは以下の店舗のGBPです：
 {store_info}
 
-【絶対厳守ルール】
-・レビューを直接誘導する行為（割引券・ポイント・特典・キャンペーンなどでレビュー投稿を促す）は**絶対に提案しない**。これはGoogleのレビュー操作禁止ポリシーに明確に違反します。
-・合法的で推奨される施策のみを提案してください。
-
 出力形式（必ずこの順番で）：
 1. 総合スコア: XX/100点 - 一言評価
 2. 規約違反チェック
 3. 即修正できる具体的な改善案
 4. 改善優先順位トップ5
-5. 全国および近隣同業種の成功事例に基づく先進施策（非常に詳細に・合法的なもののみ）
+5. 未返信レビューの状況（件数と優先対応アドバイス）
+6. 全国および近隣同業種の成功事例に基づく先進施策（合法的なもののみ・非常に詳細に）
 
-最後に必ず「これは参考情報です。最終判断はGoogle公式ツールで確認してください。」を入れてください。"""
+最後に必ず免責事項を入れてください。"""
 
         messages = [{"role": "system", "content": system_prompt}]
         if text_info.strip():
@@ -85,10 +82,10 @@ if st.button("🚀 店舗名を自動抽出して診断を開始", type="primary
                 {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{base64_image}"}}
             ]})
 
-        chat_completion = client.chat.completions.create(model="meta-llama/llama-4-maverick-17b-128e-instruct", messages=messages, max_tokens=2500, temperature=0.3)
+        chat_completion = client.chat.completions.create(model="meta-llama/llama-4-maverick-17b-128e-instruct", messages=messages, max_tokens=2600, temperature=0.3)
         result = chat_completion.choices[0].message.content
 
-    # スコア大きく表示
+    # スコア表示
     score_match = re.search(r'総合スコア[:：]\s*(\d{1,3})/100', result)
     score = int(score_match.group(1)) if score_match else 0
     color = "#22c55e" if score >= 90 else "#3b82f6" if score >= 80 else "#f59e0b" if score >= 70 else "#ef4444"
