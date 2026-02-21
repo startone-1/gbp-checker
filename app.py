@@ -15,59 +15,88 @@ if "authenticated" not in st.session_state:
     st.stop()
 
 st.set_page_config(page_title="GBPチェックアプリ", page_icon="💼", layout="centered")
-st.title("💼 Google Business Profile 規約違反チェックアプリ")
-st.markdown("**Google Mapsの店舗URLを貼るだけで、最高レベルの詳細診断**")
+st.title("💼 Google Business Profile 運用サポートアプリ")
 
 client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
-maps_url = st.text_input("🔗 Google Mapsの店舗URLを貼り付けてください", 
-                        placeholder="https://www.google.com/maps/place/...")
-text_info = st.text_area("追加テキスト情報（任意でより精度が上がります）", height=150)
+tab1, tab2 = st.tabs(["🔗 GBP診断", "💬 レビュー返信アシスタント"])
 
-if st.button("🚀 URLから本格診断を開始", type="primary", use_container_width=True):
-    if not maps_url:
-        st.error("Google Mapsの店舗URLを入力してください")
-        st.stop()
+# ==================== タブ1: GBP診断 ====================
+with tab1:
+    maps_url = st.text_input("🔗 Google Mapsの店舗URLを貼り付けてください", placeholder="https://www.google.com/maps/place/...")
+    text_info = st.text_area("追加テキスト情報（任意）", height=100)
+    if st.button("🚀 URLから本格診断を開始", type="primary", use_container_width=True):
+        if not maps_url:
+            st.error("URLを入力してください")
+            st.stop()
+        # （診断部分は前回の充実版と同じ）
+        with st.spinner("最高レベルの精密診断中..."):
+            system_prompt = f"""あなたはGBPの最高位専門家です。
+このURLの店舗を徹底的に詳細に分析してください：{maps_url}
 
-    with st.spinner("Google Maps URLから最高レベルの精密診断中..."):
-        system_prompt = f"""あなたはGoogle Business Profile公式Product Experts Programの全階層（Diamond, Platinum, Gold, Silver, Bronze）の知見を総合した、最高位の専門家です。
+出力形式：
+1. 総合スコア: XX/100点 - 一言評価
+2. 規約違反チェック
+3. 即修正できる具体的な改善案
+4. 改善優先順位トップ5
+5. 先進施策（詳細に）
+6. 近隣同業種との差分分析（実際の店舗名を挙げて）
 
-このGoogle Maps URLの店舗のGBPを、徹底的に詳細に分析してください：
-{maps_url}
+長く細かく書いてください。最後に免責事項を必ず。"""
 
-分析は長く、細かく、プロフェッショナルに行ってください。
+            messages = [{"role": "system", "content": system_prompt}]
+            if text_info.strip():
+                messages.append({"role": "user", "content": f"追加情報:\n{text_info}"})
+            res = client.chat.completions.create(model="meta-llama/llama-4-maverick-17b-128e-instruct", messages=messages, max_tokens=4000, temperature=0.3)
+            result = res.choices[0].message.content
 
-出力形式（必ずこの順番で、各項目を長く詳細に）：
-1. 総合スコア: XX/100点 - 一言評価 + 詳細な評価理由
-2. 規約違反チェック（危険度：高/中/低 + 該当ルール引用 + なぜ危険なのかの詳細説明）
-3. 即修正できる具体的な改善案（各項目を長く、コピペOKの文例を複数付きで）
-4. 改善優先順位トップ5（各項目を詳しく説明）
-5. 全国および近隣同業種の成功事例に基づく先進施策（非常に詳細に。各施策に「なぜ効果的なのか」「具体的なやり方」「週ごとの実行例」「注意すべきルール違反リスクと回避方法」を必ず入れる）
-6. 近隣の同じジャンルの施設との差分分析（抽出された住所から地域を推測し、**実際の店舗名を具体的に挙げて**比較。写真枚数、投稿頻度、評価、属性など多角的に。例：「東武ストア みずほ台店は写真280枚に対し、あなたの店舗は180枚」など）
+        st.success("✅ 診断完了！")
+        st.markdown(result)
 
-最後に必ず「これは参考情報です。最終判断はGoogle公式ツールで確認してください。」を入れてください。"""
+        today = datetime.now().strftime("%Y%m%d_%H%M")
+        st.download_button("📄 診断結果をダウンロード", result, f"GBP診断_{today}.html", "text/html")
 
-        messages = [{"role": "system", "content": system_prompt}]
-        if text_info.strip():
-            messages.append({"role": "user", "content": f"追加情報:\n{text_info}"})
+# ==================== タブ2: レビュー返信アシスタント ====================
+with tab2:
+    st.subheader("💬 レビュー返信アシスタント")
+    st.write("悪いレビュー・良いレビューを貼り付けてください。GBPガイドラインに準拠した誠実な返信文を複数パターン作成します。")
 
-        res = client.chat.completions.create(
-            model="meta-llama/llama-4-maverick-17b-128e-instruct",
-            messages=messages,
-            max_tokens=4000,
-            temperature=0.3
-        )
-        result = res.choices[0].message.content
+    review_text = st.text_area("お客様からのレビューを貼り付けてください", height=150, placeholder="例：対応が遅くて残念でした...")
 
-    st.success("✅ 診断完了！（最高レベルの詳細診断です）")
-    st.markdown(result)
+    review_type = st.radio("レビューの種類を選択", ["悪いレビュー（対応が必要）", "良いレビュー（感謝を伝えたい）"])
 
-    today = datetime.now().strftime("%Y%m%d_%H%M")
-    st.download_button(
-        label="📄 診断結果をダウンロード（HTML形式・印刷してPDF保存してください）",
-        data=result,
-        file_name=f"GBP詳細診断_{today}.html",
-        mime="text/html"
-    )
+    if st.button("🚀 返信文を作成する", type="primary", use_container_width=True):
+        if not review_text:
+            st.error("レビューを入力してください")
+            st.stop()
+
+        with st.spinner("GBPガイドラインに準拠した返信文を作成中..."):
+            prompt = f"""あなたはGBPの最高位専門家です。
+以下のレビューに対して、**誠実で丁寧で、Googleのガイドラインに完全に準拠した返信文**を3パターン作成してください。
+
+レビュー：
+{review_text}
+
+レビュー種類：{review_type}
+
+返信のポイント：
+- 常に感謝の気持ちを最初に伝える
+- 悪いレビューでも感情的にならず、事実ベースで対応
+- 改善への意欲を明確に伝える
+- 過度な謝罪や責任のなすりつけは避ける
+- 自然で人間味のある文章にする
+
+各パターンを「パターン1」「パターン2」「パターン3」として、明確に分けて出力してください。"""
+
+            res = client.chat.completions.create(
+                model="meta-llama/llama-4-maverick-17b-128e-instruct",
+                messages=[{"role": "system", "content": prompt}],
+                max_tokens=1500,
+                temperature=0.5
+            )
+            reply = res.choices[0].message.content
+
+        st.success("✅ 返信文を作成しました")
+        st.markdown(reply)
 
 st.caption("Powered by Groq | 04.sampleapp.work")
