@@ -30,7 +30,6 @@ if st.button("🚀 店舗名を自動抽出して診断を開始", type="primary
         st.stop()
 
     with st.spinner("スクショから店舗名を自動抽出中..."):
-        # OCRで店舗情報抽出
         ocr_messages = [{"role": "user", "content": [{"type": "text", "text": "この画像はGoogle Business Profileのスクショです。店舗名、住所、カテゴリを正確に抽出して教えてください。店舗名を最優先で。"}]}]
         for file in uploaded_files:
             bytes_data = file.getvalue()
@@ -50,20 +49,22 @@ if st.button("🚀 店舗名を自動抽出して診断を開始", type="primary
     st.success("✅ 店舗名を自動抽出しました")
     st.info(f"**抽出された店舗情報**\n{store_info}")
 
-    # 自動で本診断を実行（ネストを解消）
     with st.spinner("この店舗のGBPとして、Diamond Product Expertレベルの知見で精密分析中..."):
         system_prompt = f"""あなたはGoogle Business Profile公式Product Experts Programの全階層（Diamond, Platinum, Gold, Silver, Bronze）の知見を総合した最高位の専門家です。
 
 このスクショは以下の店舗のGBPです：
 {store_info}
 
-この特定の店舗の実際のGBPとして、スクショの内容を正確に分析してください。
+この特定の店舗のGBPとして、スクショの内容を正確に分析してください。
 
 出力形式：
 1. 規約違反チェック（危険度：高/中/低 + 該当ルール引用）
 2. 即修正できる具体的な改善案（コピペOKの文例付き）
 3. 改善優先順位トップ3
-4. Diamond〜Bronze Product Expertが実際にやっている追加施策
+4. **全国および近隣同業種の成功事例に基づく先進施策**
+   - この店舗の近隣エリア（抽出された住所から推測される地域）でGBPが伸びている同業種が実際にやっている施策（写真の種類・更新頻度、投稿コンテンツ例、Q&A活用方法、属性追加など具体的に）
+   - 全国で高評価・高集客の同業種GBPが実践している先進的な施策（成功事例を複数挙げて、なぜ効果的なのかも説明）
+   - この店舗に即適用できる具体的な実行プラン（今日からできること・週単位の計画など）
 
 最後に必ず「これは参考情報です。最終判断はGoogle公式ツールで確認してください。」を入れてください。"""
 
@@ -84,7 +85,7 @@ if st.button("🚀 店舗名を自動抽出して診断を開始", type="primary
         chat_completion = client.chat.completions.create(
             model="meta-llama/llama-4-maverick-17b-128e-instruct",
             messages=messages,
-            max_tokens=2000,
+            max_tokens=2200,
             temperature=0.3
         )
         result = chat_completion.choices[0].message.content
