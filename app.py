@@ -4,7 +4,7 @@ import base64
 from datetime import datetime
 import re
 
-# ============== パスワード認証（鍵） ==============
+# ============== パスワード認証 ==============
 if "authenticated" not in st.session_state:
     st.title("💼 Google Business Profile 規約違反チェックアプリ")
     password = st.text_input("🔒 このアプリを使用するにはパスワードを入力してください", type="password")
@@ -16,8 +16,25 @@ if "authenticated" not in st.session_state:
             st.error("パスワードが違います")
     st.stop()
 
-# ============== 本体 ==============
+# ============== スマホでも完璧に見えるCSS ==============
 st.set_page_config(page_title="GBPチェックアプリ", page_icon="💼", layout="centered")
+
+st.markdown("""
+<style>
+    .main {background-color: #0f172a; color: #e2e8f0;}
+    h1 {font-size: 2.6rem !important;}
+    .big-score {
+        font-size: 7rem !important;
+        font-weight: bold;
+        line-height: 1;
+    }
+    @media (max-width: 768px) {
+        .big-score { font-size: 5.5rem !important; }
+        h1 { font-size: 2.2rem !important; }
+        .stButton>button { height: 3.5rem; font-size: 1.1rem; }
+    }
+</style>
+""", unsafe_allow_html=True)
 
 st.title("💼 Google Business Profile 規約違反チェックアプリ")
 st.markdown("**Diamond〜Bronze Product Expertの全知見を活かした精密診断**")
@@ -69,19 +86,14 @@ if st.button("🚀 店舗名を自動抽出して診断を開始", type="primary
 このスクショは以下の店舗のGBPです：
 {store_info}
 
-この特定の店舗のGBPとして正確に分析してください。
-
 出力形式（必ずこの順番で）：
 1. 総合スコア: XX/100点 - 一言評価
 2. 規約違反チェック（危険度：高/中/低 + 該当ルール引用）
 3. 即修正できる具体的な改善案（コピペOKの文例付き）
 4. 改善優先順位トップ5
-5. **全国および近隣同業種の成功事例に基づく先進施策**（大幅に詳細に）
-   - この店舗の近隣エリア（住所から推測される地域）で実際にGBPが伸びている同業種がやっている具体的な施策（写真の種類・撮影方法・更新頻度、投稿コンテンツの例、Q&Aの活用法、属性追加、360°写真、イベント投稿、返信テンプレートなど）
-   - 全国で高評価・高集客の同業種GBPが実践している先進的な施策（成功事例を複数挙げて、なぜ効果的なのか、具体的なやり方、週ごとの計画例まで）
-   - この店舗に**今日から即適用できる**実行プラン（1週間プラン・1ヶ月プランなど）
+5. 全国および近隣同業種の成功事例に基づく先進施策（非常に詳細に）
 
-最後に必ず「これは参考情報です。最終判断はGoogle公式ツールで確認してください。」を入れてください。"""
+最後に必ず免責事項を入れてください。"""
 
         messages = [{"role": "system", "content": system_prompt}]
         if text_info.strip():
@@ -105,7 +117,7 @@ if st.button("🚀 店舗名を自動抽出して診断を開始", type="primary
         )
         result = chat_completion.choices[0].message.content
 
-    # スコアを大きく表示
+    # ============== 超大きく目立つスコア表示 ==============
     score_match = re.search(r'総合スコア[:：]\s*(\d{1,3})/100', result)
     if score_match:
         score = int(score_match.group(1))
@@ -119,9 +131,9 @@ if st.button("🚀 店舗名を自動抽出して診断を開始", type="primary
             color = "#ef4444"; emoji = "⚠️"
 
         st.markdown(f"""
-        <div style="text-align:center; padding:40px; background:#1e2937; border-radius:20px; margin:25px 0;">
-            <h1 style="font-size:5rem; color:{color}; margin:0;">{emoji} {score}/100点</h1>
-            <p style="font-size:1.6rem; color:#e2e8f0;">この店舗のGBP総合評価</p>
+        <div style="text-align:center; padding:35px; background:#1e2937; border-radius:20px; margin:20px 0;">
+            <h1 class="big-score" style="color:{color};">{emoji} {score}/100点</h1>
+            <p style="font-size:1.8rem; color:#e2e8f0; margin:10px 0 0 0;">この店舗のGBP総合評価</p>
         </div>
         """, unsafe_allow_html=True)
 
