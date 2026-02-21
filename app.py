@@ -24,9 +24,9 @@ tab1, tab2 = st.tabs(["🔗 Google Maps URLから診断", "🔍 店舗名で検�
 
 # ==================== タブ1: Google Maps URL ====================
 with tab1:
-    maps_url = st.text_input("Google Mapsの店舗URLを貼り付けてください", placeholder="https://www.google.com/maps/place/...")
-    text_info1 = st.text_area("追加テキスト情報（任意）", height=100)
-    if st.button("🚀 Google Maps URLから診断開始", type="primary", use_container_width=True):
+    maps_url = st.text_input("Google Mapsの店舗URLを貼り付けてください", placeholder="https://www.google.com/maps/place/...", key="maps_url")
+    text_info1 = st.text_area("追加テキスト情報（任意）", height=100, key="text_maps")
+    if st.button("🚀 Google Maps URLから診断開始", type="primary", use_container_width=True, key="btn_maps"):
         if not maps_url:
             st.error("URLを入力してください")
             st.stop()
@@ -60,10 +60,10 @@ with tab1:
 
 # ==================== タブ2: 店舗名で検索 ====================
 with tab2:
-    store_name = st.text_input("🏬 店舗名を入力してください", placeholder="例：東武ストア みずほ台店")
-    address_hint = st.text_input("住所の一部（わかれば入力してください）", placeholder="立川市錦町 など")
-    text_info2 = st.text_area("追加テキスト情報（任意）", height=100)
-    if st.button("🚀 店舗名で検索して診断開始", type="primary", use_container_width=True):
+    store_name = st.text_input("🏬 店舗名を入力してください", placeholder="例：東武ストア みずほ台店", key="store_name")
+    address_hint = st.text_input("住所の一部（わかれば）", placeholder="立川市錦町 など", key="address_hint")
+    text_info2 = st.text_area("追加テキスト情報（任意）", height=100, key="text_search")
+    if st.button("🚀 店舗名で検索して診断開始", type="primary", use_container_width=True, key="btn_search"):
         if not store_name:
             st.error("店舗名を入力してください")
             st.stop()
