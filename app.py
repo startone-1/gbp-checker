@@ -4,130 +4,76 @@ import base64
 from datetime import datetime
 import re
 
-# パスワード認証
+# パスワード
 if "authenticated" not in st.session_state:
-    st.title("💼 Google Business Profile 規約違反チェックアプリ")
-    password = st.text_input("🔒 パスワードを入力してください", type="password")
+    st.title("💼 GBPチェックアプリ")
+    pw = st.text_input("パスワードを入力", type="password")
     if st.button("ログイン"):
-        if password == st.secrets["APP_PASSWORD"]:
+        if pw == st.secrets["APP_PASSWORD"]:
             st.session_state.authenticated = True
             st.rerun()
         else:
             st.error("パスワードが違います")
     st.stop()
 
-st.set_page_config(page_title="GBPチェックアプリ", page_icon="💼", layout="centered")
-
+st.set_page_config(page_title="GBPチェック", page_icon="💼", layout="centered")
 st.title("💼 Google Business Profile 規約違反チェックアプリ")
-st.markdown("**Diamond〜Bronze Product Expertの全知見を活かした精密診断**")
 
 try:
-    groq_key = st.secrets["GROQ_API_KEY"]
+    client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 except:
-    st.error("Groqキーを設定してください")
+    st.error("Groqキーが設定されていません")
     st.stop()
 
-client = Groq(api_key=groq_key)
+uploaded_files = st.file_uploader("スクショをアップロード（複数OK）", type=["jpg","jpeg","png"], accept_multiple_files=True)
+text_info = st.text_area("追加テキスト情報（任意）", height=100)
 
-uploaded_files = st.file_uploader("📸 GBPページのスクリーンショットをアップロード（複数OK）", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
-text_info = st.text_area("テキスト情報（任意・精度UP）", height=150)
-
-if st.button("🚀 店舗名を自動抽出して診断を開始", type="primary", use_container_width=True):
+if st.button("🚀 診断を開始", type="primary", use_container_width=True):
     if not uploaded_files:
         st.error("スクショをアップロードしてください")
         st.stop()
 
-    # ==================== 1段階目：高精度OCR ====================
-    with st.spinner("スクショから店舗情報を高精度で自動抽出中..."):
-        ocr_prompt = """この画像はGoogle Business Profileのスクリーンショットです。
-以下の情報を**正確に**抽出してください。日本語で。
-- 店舗名（最も重要な情報）
-- 住所（完全な住所）
-- カテゴリ（Primaryカテゴリを中心に）
-- 電話番号（あれば）
-- ウェブサイト（あれば）
+    # 高精度OCR
+    with st.spinner("店舗情報を高精度で抽出中..."):
+        ocr_msg = [{"role": "user", "content": [{"type": "text", "text": "このGBPスクショから店舗名、住所、カテゴリを正確に抽出せよ。形式：店舗名: XXX\n住所: XXX\nカテゴリ: XXX"}]}]
+        for f in uploaded_files:
+            b64 = base64.b64encode(f.getvalue()).decode()
+            mime = f"image/{'jpeg' if f.name.lower().endswith(('jpg','jpeg')) else f.name.split('.')[-1].lower()}"
+            ocr_msg[0]["content"].append({"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}})
+        res = client.chat.completions.create(model="meta-llama/llama-4-maverick-17b-128e-instruct", messages=ocr_msg, max_tokens=300, temperature=0.0)
+        store = res.choices[0].message.content
 
-「店舗名: 〇〇
-住所: 〇〇
-カテゴリ: 〇〇」
-という形式で簡潔に出力してください。"""
+    st.success("✅ 店舗情報抽出完了")
+    st.info(store)
 
-        ocr_messages = [{"role": "user", "content": [{"type": "text", "text": ocr_prompt}]}]
-        for file in uploaded_files:
-            bytes_data = file.getvalue()
-            base64_image = base64.b64encode(bytes_data).decode("utf-8")
-            ext = file.name.split(".")[-1].lower()
-            mime = f"image/{'jpeg' if ext in ['jpg','jpeg'] else ext}"
-            ocr_messages[0]["content"].append({"type": "image_url", "image_url": {"url": f"data:{mime};base64,{base64_image}"}})
+    # 診断
+    with st.spinner("精密診断中..."):
+        prompt = f"""このスクショは以下の店舗のGBPです：
+{store}
 
-        ocr_completion = client.chat.completions.create(
-            model="meta-llama/llama-4-maverick-17b-128e-instruct",
-            messages=ocr_messages,
-            max_tokens=400,
-            temperature=0.0
-        )
-        store_info = ocr_completion.choices[0].message.content
-
-    st.success("✅ 店舗情報を高精度で抽出しました")
-    st.info(f"**抽出された店舗情報**\n{store_info}")
-
-    # ==================== 2段階目：診断 ====================
-    with st.spinner("この店舗のGBPとして精密診断中..."):
-        system_prompt = f"""あなたはGoogle Business Profile公式Product Experts Programの最高位専門家です。
-
-このスクショは**以下の店舗のGBP**です：
-{store_info}
-
-この特定の店舗として正確に分析してください。
-
-出力形式（必ずこの順番で）：
+出力形式：
 1. 総合スコア: XX/100点 - 一言評価
 2. 規約違反チェック
-3. 即修正できる具体的な改善案
+3. 即修正案
 4. 改善優先順位トップ5
-5. 全国および近隣同業種の成功事例に基づく先進施策（合法的なもののみ）
+5. 先進施策（合法的なもののみ・違反リスクは必ず注意喚起）
 
-最後に免責事項を入れてください。"""
+免責事項を最後に必ず入れる。"""
+        msgs = [{"role": "system", "content": prompt}]
+        if text_info:
+            msgs.append({"role": "user", "content": f"追加情報:\n{text_info}"})
+        for f in uploaded_files:
+            b64 = base64.b64encode(f.getvalue()).decode()
+            mime = f"image/{'jpeg' if f.name.lower().endswith(('jpg','jpeg')) else f.name.split('.')[-1].lower()}"
+            msgs.append({"role": "user", "content": [{"type": "text", "text": f"画像：{f.name}"}, {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}}]})
 
-        messages = [{"role": "system", "content": system_prompt}]
-        if text_info.strip():
-            messages.append({"role": "user", "content": f"追加情報:\n{text_info}"})
+        res = client.chat.completions.create(model="meta-llama/llama-4-maverick-17b-128e-instruct", messages=msgs, max_tokens=2200, temperature=0.3)
+        result = res.choices[0].message.content
 
-        for file in uploaded_files:
-            bytes_data = file.getvalue()
-            base64_image = base64.b64encode(bytes_data).decode("utf-8")
-            ext = file.name.split(".")[-1].lower()
-            mime = f"image/{'jpeg' if ext in ['jpg','jpeg'] else ext}"
-            messages.append({"role": "user", "content": [
-                {"type": "text", "text": f"画像：{file.name}"},
-                {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{base64_image}"}}]
-            })
-
-        chat_completion = client.chat.completions.create(
-            model="meta-llama/llama-4-maverick-17b-128e-instruct",
-            messages=messages,
-            max_tokens=2500,
-            temperature=0.3
-        )
-        result = chat_completion.choices[0].message.content
-
-    # スコア表示
-    score_match = re.search(r'総合スコア[:：]\s*(\d{1,3})/100', result)
-    if score_match:
-        score = int(score_match.group(1))
-        color = "#22c55e" if score >= 90 else "#3b82f6" if score >= 80 else "#f59e0b" if score >= 70 else "#ef4444"
-        emoji = "🏆" if score >= 90 else "🌟" if score >= 80 else "👍" if score >= 70 else "⚠️"
-        st.markdown(f'<div style="text-align:center; padding:40px; background:#1e2937; border-radius:20px; margin:25px 0;"><h1 style="font-size:6rem; color:{color}; margin:0;">{emoji} {score}/100点</h1><p style="font-size:1.8rem; color:#e2e8f0;">この店舗のGBP総合評価</p></div>', unsafe_allow_html=True)
-
-    st.success("✅ 診断完了！")
+    st.success("✅ 診断完了")
     st.markdown(result)
 
     today = datetime.now().strftime("%Y%m%d_%H%M")
-    st.download_button(
-        label="📄 診断結果をダウンロード（HTML形式・印刷してPDF保存してください）",
-        data=result,
-        file_name=f"GBP診断結果_{today}.html",
-        mime="text/html"
-    )
+    st.download_button("📄 診断結果をダウンロード（HTMLでPDF保存可能）", result, f"GBP診断_{today}.html", "text/html")
 
-st.caption("💼 Powered by 全Product Expert知見 | 04.sampleapp.work")
+st.caption("Powered by Groq | 04.sampleapp.work")
