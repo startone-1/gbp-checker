@@ -24,9 +24,13 @@ uploaded_files = st.file_uploader(
 
 text_info = st.text_area("テキスト情報（任意・精度UP）", height=150)
 
-if uploaded_files and st.button("🚀 店舗名を自動抽出して診断を開始", type="primary", use_container_width=True):
-    with st.spinner("スクショから店舗名を自動で読み取り中..."):
-        # 1段階目：店舗名抽出
+if st.button("🚀 店舗名を自動抽出して診断を開始", type="primary", use_container_width=True):
+    if not uploaded_files:
+        st.error("スクショをアップロードしてください")
+        st.stop()
+
+    with st.spinner("スクショから店舗名を自動抽出中..."):
+        # OCRで店舗情報抽出
         ocr_messages = [{"role": "user", "content": [{"type": "text", "text": "この画像はGoogle Business Profileのスクショです。店舗名、住所、カテゴリを正確に抽出して教えてください。店舗名を最優先で。"}]}]
         for file in uploaded_files:
             bytes_data = file.getvalue()
@@ -43,17 +47,17 @@ if uploaded_files and st.button("🚀 店舗名を自動抽出して診断を開
         )
         store_info = ocr_completion.choices[0].message.content
 
-        st.success("✅ 店舗名を自動抽出しました")
-        st.info(f"**抽出された店舗情報**\n{store_info}")
+    st.success("✅ 店舗名を自動抽出しました")
+    st.info(f"**抽出された店舗情報**\n{store_info}")
 
-        if st.button("✅ この店舗で診断を進める", type="primary"):
-            with st.spinner("Diamond Product Expertレベルの知見で精密分析中...（この店舗のGBPとしてしっかり見ています）"):
-                system_prompt = f"""あなたはGoogle Business Profile公式Product Experts Programの全階層（Diamond, Platinum, Gold, Silver, Bronze）の知見を総合した最高位の専門家です。
+    # 自動で本診断を実行（ネストを解消）
+    with st.spinner("この店舗のGBPとして、Diamond Product Expertレベルの知見で精密分析中..."):
+        system_prompt = f"""あなたはGoogle Business Profile公式Product Experts Programの全階層（Diamond, Platinum, Gold, Silver, Bronze）の知見を総合した最高位の専門家です。
 
 このスクショは以下の店舗のGBPです：
 {store_info}
 
-この特定の店舗の実際のGBPとして、スクショの内容を正確に分析してください。公式ルール・ガイドラインを厳密に守り、的確で具体的なアドバイスをしてください。
+この特定の店舗の実際のGBPとして、スクショの内容を正確に分析してください。
 
 出力形式：
 1. 規約違反チェック（危険度：高/中/低 + 該当ルール引用）
@@ -63,38 +67,37 @@ if uploaded_files and st.button("🚀 店舗名を自動抽出して診断を開
 
 最後に必ず「これは参考情報です。最終判断はGoogle公式ツールで確認してください。」を入れてください。"""
 
-                messages = [{"role": "system", "content": system_prompt}]
-                user_content = []
-                if text_info.strip():
-                    user_content.append({"type": "text", "text": f"追加情報:\n{text_info}"})
+        messages = [{"role": "system", "content": system_prompt}]
+        if text_info.strip():
+            messages.append({"role": "user", "content": f"追加情報:\n{text_info}"})
 
-                for file in uploaded_files:
-                    bytes_data = file.getvalue()
-                    base64_image = base64.b64encode(bytes_data).decode("utf-8")
-                    ext = file.name.split(".")[-1].lower()
-                    mime = f"image/{'jpeg' if ext in ['jpg','jpeg'] else ext}"
-                    user_content.append({"type": "image_url", "image_url": {"url": f"data:{mime};base64,{base64_image}"}})
+        for file in uploaded_files:
+            bytes_data = file.getvalue()
+            base64_image = base64.b64encode(bytes_data).decode("utf-8")
+            ext = file.name.split(".")[-1].lower()
+            mime = f"image/{'jpeg' if ext in ['jpg','jpeg'] else ext}"
+            messages.append({"role": "user", "content": [
+                {"type": "text", "text": f"画像：{file.name}"},
+                {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{base64_image}"}}]
+            })
 
-                messages.append({"role": "user", "content": user_content})
+        chat_completion = client.chat.completions.create(
+            model="meta-llama/llama-4-maverick-17b-128e-instruct",
+            messages=messages,
+            max_tokens=2000,
+            temperature=0.3
+        )
+        result = chat_completion.choices[0].message.content
 
-                chat_completion = client.chat.completions.create(
-                    model="meta-llama/llama-4-maverick-17b-128e-instruct",
-                    messages=messages,
-                    max_tokens=2000,
-                    temperature=0.3
-                )
-                result = chat_completion.choices[0].message.content
+    st.success("✅ 診断完了！この店舗のGBPをしっかり考慮した結果です")
+    st.markdown(result)
 
-                st.success("✅ 診断完了！この店舗のGBPをしっかり考慮した結果です")
-                st.markdown(result)
-
-                # PDFダウンロード
-                today = datetime.now().strftime("%Y%m%d_%H%M")
-                st.download_button(
-                    label="📄 診断結果をダウンロード（PDF保存も簡単）",
-                    data=result,
-                    file_name=f"GBPチェック_{today}.md",
-                    mime="text/markdown"
-                )
+    today = datetime.now().strftime("%Y%m%d_%H%M")
+    st.download_button(
+        label="📄 診断結果をダウンロード（PDF保存も簡単）",
+        data=result,
+        file_name=f"GBPチェック_{today}.md",
+        mime="text/markdown"
+    )
 
 st.caption("💼 Powered by 全Product Expert知見 | 04.sampleapp.work")
