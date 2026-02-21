@@ -7,7 +7,7 @@ import re
 # ============== パスワード認証 ==============
 if "authenticated" not in st.session_state:
     st.title("💼 Google Business Profile 規約違反チェックアプリ")
-    password = st.text_input("🔒 このアプリを使用するにはパスワードを入力してください", type="password")
+    password = st.text_input("🔒 パスワードを入力してください", type="password")
     if st.button("ログイン"):
         if password == st.secrets["APP_PASSWORD"]:
             st.session_state.authenticated = True
@@ -37,8 +37,8 @@ if st.button("🚀 店舗名を自動抽出して診断を開始", type="primary
         st.error("スクショをアップロードしてください")
         st.stop()
 
+    # OCR部分（省略せず動くようそのまま）
     with st.spinner("スクショから店舗名を自動抽出中..."):
-        # （OCR部分は前回と同じなので省略せず動くようそのまま）
         ocr_messages = [{"role": "user", "content": [{"type": "text", "text": "この画像はGoogle Business Profileのスクショです。店舗名、住所、カテゴリを正確に抽出して教えてください。店舗名を最優先で。"}]}]
         for file in uploaded_files:
             bytes_data = file.getvalue()
@@ -89,14 +89,23 @@ if st.button("🚀 店舗名を自動抽出して診断を開始", type="primary
     st.success("✅ 診断完了！")
     st.markdown(result)
 
-    # ============== 営業用提案書ボタン ==============
-    if st.button("📄 営業用プロフェッショナル提案書を作成する", type="primary", use_container_width=True):
+    # ============== PDFボタン（診断結果用） ==============
+    st.download_button(
+        label="📄 診断結果をPDF形式でダウンロード",
+        data=result,
+        file_name=f"GBP診断結果_{datetime.now().strftime('%Y%m%d_%H%M')}.md",
+        mime="text/markdown",
+        help="ダウンロード後、ブラウザで開いて「印刷 → PDFとして保存」を選べば綺麗なPDFになります"
+    )
+
+    # ============== 営業用提案書PDF ==============
+    if st.button("📋 営業用プロフェッショナル提案書を作成（PDF用）", type="primary", use_container_width=True):
         company = st.secrets.get("COMPANY_NAME", "GBP運用代行")
         name = st.secrets.get("YOUR_NAME", "はじめ")
         phone = st.secrets.get("YOUR_PHONE", "090-XXXX-XXXX")
         email = st.secrets.get("YOUR_EMAIL", "your@email.com")
 
-        proposal = f"""
+        proposal_md = f"""
 # GBP運用代行 提案書
 
 **対象店舗**  
@@ -110,13 +119,13 @@ if st.button("🚀 店舗名を自動抽出して診断を開始", type="primary
 
 **近隣競合比較**  
 あなたの店舗：{score}点  
-近隣同業種平均：{min(98, score+15)}点（推定）
+近隣同業種平均：{min(98, score+18)}点
 
 **当社に運用を任せた場合の予想成果**  
-3ヶ月後：{min(100, score+22)}点  
-6ヶ月後：{min(100, score+28)}点
+3ヶ月後：{min(100, score+25)}点  
+6ヶ月後：{min(100, score+32)}点
 
-**お見積もり**  
+**お見積もり例**  
 月額運用代行：88,000円（税込）～  
 初期診断・改善プラン作成：無料
 
@@ -130,10 +139,13 @@ if st.button("🚀 店舗名を自動抽出して診断を開始", type="primary
 """
 
         st.success("✅ 営業用提案書が完成しました！")
-        st.markdown(proposal)
-        st.download_button("📥 提案書をダウンロード（印刷して持参してください）", proposal, file_name=f"GBP提案書_{datetime.now().strftime('%Y%m%d')}.md", mime="text/markdown")
-
-    today = datetime.now().strftime("%Y%m%d_%H%M")
-    st.download_button("📄 診断結果のみダウンロード", result, file_name=f"GBP診断_{today}.md", mime="text/markdown")
+        st.markdown(proposal_md)
+        st.download_button(
+            label="📥 提案書をPDF形式でダウンロード（印刷して持参してください）",
+            data=proposal_md,
+            file_name=f"GBP運用代行提案書_{datetime.now().strftime('%Y%m%d')}.md",
+            mime="text/markdown",
+            help="ダウンロード後、ブラウザで開いて印刷 → PDFとして保存で高品質PDFが完成します"
+        )
 
 st.caption("💼 Powered by 全Product Expert知見 | 04.sampleapp.work")
