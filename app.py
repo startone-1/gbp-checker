@@ -4,6 +4,19 @@ import base64
 from datetime import datetime
 import re
 
+# ============== パスワード認証（鍵） ==============
+if "authenticated" not in st.session_state:
+    st.title("💼 Google Business Profile 規約違反チェックアプリ")
+    password = st.text_input("🔒 このアプリを使用するにはパスワードを入力してください", type="password")
+    if st.button("ログイン"):
+        if password == st.secrets["APP_PASSWORD"]:
+            st.session_state.authenticated = True
+            st.rerun()
+        else:
+            st.error("パスワードが違います")
+    st.stop()
+
+# ============== 本体 ==============
 st.set_page_config(page_title="GBPチェックアプリ", page_icon="💼", layout="centered")
 
 st.title("💼 Google Business Profile 規約違反チェックアプリ")
@@ -59,11 +72,14 @@ if st.button("🚀 店舗名を自動抽出して診断を開始", type="primary
 この特定の店舗のGBPとして正確に分析してください。
 
 出力形式（必ずこの順番で）：
-1. 総合スコア: XX/100点 - 一言評価（例: 92/100点 - 非常に優れたGBPです）
+1. 総合スコア: XX/100点 - 一言評価
 2. 規約違反チェック（危険度：高/中/低 + 該当ルール引用）
 3. 即修正できる具体的な改善案（コピペOKの文例付き）
 4. 改善優先順位トップ5
-5. 全国および近隣同業種の成功事例に基づく先進施策
+5. **全国および近隣同業種の成功事例に基づく先進施策**（大幅に詳細に）
+   - この店舗の近隣エリア（住所から推測される地域）で実際にGBPが伸びている同業種がやっている具体的な施策（写真の種類・撮影方法・更新頻度、投稿コンテンツの例、Q&Aの活用法、属性追加、360°写真、イベント投稿、返信テンプレートなど）
+   - 全国で高評価・高集客の同業種GBPが実践している先進的な施策（成功事例を複数挙げて、なぜ効果的なのか、具体的なやり方、週ごとの計画例まで）
+   - この店舗に**今日から即適用できる**実行プラン（1週間プラン・1ヶ月プランなど）
 
 最後に必ず「これは参考情報です。最終判断はGoogle公式ツールで確認してください。」を入れてください。"""
 
@@ -84,32 +100,28 @@ if st.button("🚀 店舗名を自動抽出して診断を開始", type="primary
         chat_completion = client.chat.completions.create(
             model="meta-llama/llama-4-maverick-17b-128e-instruct",
             messages=messages,
-            max_tokens=2200,
+            max_tokens=2500,
             temperature=0.3
         )
         result = chat_completion.choices[0].message.content
 
-    # ============== スコアを大きく目立たせて表示 ==============
+    # スコアを大きく表示
     score_match = re.search(r'総合スコア[:：]\s*(\d{1,3})/100', result)
     if score_match:
         score = int(score_match.group(1))
         if score >= 90:
-            color = "#22c55e"   # 緑
-            emoji = "🏆"
+            color = "#22c55e"; emoji = "🏆"
         elif score >= 80:
-            color = "#3b82f6"   # 青
-            emoji = "🌟"
+            color = "#3b82f6"; emoji = "🌟"
         elif score >= 70:
-            color = "#f59e0b"   # オレンジ
-            emoji = "👍"
+            color = "#f59e0b"; emoji = "👍"
         else:
-            color = "#ef4444"   # 赤
-            emoji = "⚠️"
+            color = "#ef4444"; emoji = "⚠️"
 
         st.markdown(f"""
-        <div style="text-align:center; padding:30px; background:#1e2937; border-radius:20px; margin:20px 0;">
-            <h1 style="font-size:4.5rem; color:{color}; margin:0;">{emoji} {score}/100点</h1>
-            <p style="font-size:1.5rem; color:#e2e8f0; margin:10px 0 0 0;">この店舗のGBP総合評価</p>
+        <div style="text-align:center; padding:40px; background:#1e2937; border-radius:20px; margin:25px 0;">
+            <h1 style="font-size:5rem; color:{color}; margin:0;">{emoji} {score}/100点</h1>
+            <p style="font-size:1.6rem; color:#e2e8f0;">この店舗のGBP総合評価</p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -118,7 +130,7 @@ if st.button("🚀 店舗名を自動抽出して診断を開始", type="primary
 
     today = datetime.now().strftime("%Y%m%d_%H%M")
     st.download_button(
-        label="📄 診断結果をダウンロード（PDF保存も簡単）",
+        label="📄 診断結果をダウンロード",
         data=result,
         file_name=f"GBPチェック_{today}.md",
         mime="text/markdown"
