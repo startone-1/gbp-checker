@@ -54,27 +54,20 @@ if st.button("🚀 店舗名を自動抽出して診断を開始", type="primary
 
     with st.spinner("精密分析中..."):
         system_prompt = f"""あなたはGoogle Business Profile公式Product Experts Programの全階層の知見を総合した最高位の専門家です。
-
-このスクショは以下の店舗のGBPです：
-{store_info}
-
-**絶対に守るルール**：
-- レビューや評価を金銭・割引・ポイント・特典・インセンティブなどで誘導する行為は一切提案しない（クチコミキャンペーン、レビュー依頼キャンペーンなどGoogleガイドライン違反の施策は完全禁止）。
-- 合法で効果的な施策のみ提案する。
+このスクショは以下の店舗のGBPです：{store_info}
 
 出力形式（必ずこの順番で）：
 1. 総合スコア: XX/100点 - 一言評価
 2. 規約違反チェック
 3. 即修正できる具体的な改善案
 4. 改善優先順位トップ5
-5. 全国および近隣同業種の成功事例に基づく先進施策（非常に詳細に・合法的なもののみ）
+5. 全国および近隣同業種の成功事例に基づく先進施策（非常に詳細に）
 
-最後に必ず免責事項を入れてください。"""
+最後に免責事項を入れてください。"""
 
         messages = [{"role": "system", "content": system_prompt}]
         if text_info.strip():
             messages.append({"role": "user", "content": f"追加情報:\n{text_info}"})
-
         for file in uploaded_files:
             bytes_data = file.getvalue()
             base64_image = base64.b64encode(bytes_data).decode("utf-8")
@@ -104,6 +97,13 @@ if st.button("🚀 店舗名を自動抽出して診断を開始", type="primary
     st.success("✅ 診断完了！")
     st.markdown(result)
 
+    # PDF用ダウンロード
     today = datetime.now().strftime("%Y%m%d_%H%M")
     st.download_button(
-        label="📄 診断結果を
+        label="📄 診断結果をダウンロード（HTML形式・印刷してPDF保存してください）",
+        data=result,
+        file_name=f"GBP診断結果_{today}.html",
+        mime="text/html"
+    )
+
+st.caption("💼 Powered by 全Product Expert知見 | 04.sampleapp.work")
