@@ -16,7 +16,7 @@ if "authenticated" not in st.session_state:
 
 st.set_page_config(page_title="GBPチェックアプリ", page_icon="💼", layout="centered")
 
-# 非常に目立つ切り替えUI
+# 目立つ切り替えUI
 st.markdown("""
 <style>
     .big-tab {
@@ -78,10 +78,21 @@ if st.session_state.current_tab == "gbp":
         if not maps_url:
             st.error("URLを入力してください")
             st.stop()
-        with st.spinner("最高レベルの精密診断中..."):
-            system_prompt = f"""あなたはGoogle Business Profileの最高位専門家です。
-このGoogle Maps URLの店舗を徹底的に詳細に分析してください：
+
+        with st.spinner("店舗名を抽出して精密診断中..."):
+            # まず店舗名を抽出
+            name_prompt = f"""このGoogle Maps URLの店舗名を正確に抽出してください：
 {maps_url}
+「店舗名: XXX」の形式で答えてください。"""
+            name_res = client.chat.completions.create(model="meta-llama/llama-4-maverick-17b-128e-instruct", messages=[{"role": "user", "content": name_prompt}], max_tokens=100, temperature=0.0)
+            store_name = name_res.choices[0].message.content.strip()
+
+            # 本診断
+            system_prompt = f"""あなたはGoogle Business Profileの最高位専門家です。
+
+店舗名: **{store_name}**
+
+この店舗のGBPを徹底的に詳細に分析してください。
 
 出力形式：
 1. 総合スコア: XX/100点 - 一言評価
@@ -98,7 +109,7 @@ if st.session_state.current_tab == "gbp":
             res = client.chat.completions.create(model="meta-llama/llama-4-maverick-17b-128e-instruct", messages=messages, max_tokens=4000, temperature=0.3)
             result = res.choices[0].message.content
 
-        st.success("✅ 診断完了！")
+        st.success(f"✅ **{store_name}** の診断完了！")
         st.markdown(result)
 
         today = datetime.now().strftime("%Y%m%d_%H%M")
