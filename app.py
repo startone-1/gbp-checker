@@ -16,32 +16,32 @@ if "authenticated" not in st.session_state:
 
 st.set_page_config(page_title="GBPチェックアプリ", page_icon="💼", layout="centered")
 
-# 目立つ切り替えUI
+# 非常に目立つ切り替えUI
 st.markdown("""
 <style>
     .big-tab {
         width: 100%;
-        padding: 28px 20px;
-        font-size: 1.45rem;
+        padding: 32px 20px;
+        font-size: 1.55rem;
         font-weight: bold;
-        border-radius: 16px;
-        margin-bottom: 18px;
+        border-radius: 18px;
+        margin-bottom: 20px;
         text-align: center;
         transition: all 0.3s ease;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.25);
     }
     .big-tab-active {
         background: linear-gradient(90deg, #3b82f6, #1e40af) !important;
         color: white !important;
-        box-shadow: 0 12px 25px rgba(59, 130, 246, 0.4);
-        transform: translateY(-3px);
+        box-shadow: 0 15px 35px rgba(59, 130, 246, 0.5);
+        transform: translateY(-4px);
     }
     .big-tab-inactive {
         background: #1e2937;
         color: #94a3b8;
     }
     @media (max-width: 768px) {
-        .big-tab { font-size: 1.3rem; padding: 22px 15px; }
+        .big-tab { font-size: 1.35rem; padding: 25px 15px; }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -56,12 +56,11 @@ with col2:
     if st.button("💬 レビュー返信アシスタント", use_container_width=True, key="tab_review"):
         st.session_state.current_tab = "review"
 
-# 現在のタブ管理
 if "current_tab" not in st.session_state:
     st.session_state.current_tab = "gbp"
 
 st.markdown(f"""
-<div style="display:flex; gap:15px; margin-bottom:30px;">
+<div style="display:flex; gap:18px; margin-bottom:35px;">
     <div class="big-tab {'big-tab-active' if st.session_state.current_tab == 'gbp' else 'big-tab-inactive'}">🔗 GBP診断</div>
     <div class="big-tab {'big-tab-active' if st.session_state.current_tab == 'review' else 'big-tab-inactive'}">💬 レビュー返信アシスタント</div>
 </div>
@@ -73,13 +72,12 @@ client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 if st.session_state.current_tab == "gbp":
     st.subheader("🔗 Google Maps URLから診断")
     maps_url = st.text_input("Google Mapsの店舗URLを貼り付けてください", placeholder="https://www.google.com/maps/place/...")
-    text_info = st.text_area("追加テキスト情報（任意）", height=150)
+    text_info = st.text_area("追加テキスト情報（任意でより精度が上がります）", height=150)
     
     if st.button("🚀 URLから本格診断を開始", type="primary", use_container_width=True):
         if not maps_url:
             st.error("URLを入力してください")
             st.stop()
-        # 高品質診断（前回の充実版）
         with st.spinner("最高レベルの精密診断中..."):
             system_prompt = f"""あなたはGoogle Business Profileの最高位専門家です。
 このGoogle Maps URLの店舗を徹底的に詳細に分析してください：
