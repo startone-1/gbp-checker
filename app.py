@@ -42,7 +42,6 @@ st.markdown("""
         background: #1e2937;
         color: #94a3b8;
     }
-    /* スマホでのテキスト読みやすさ改善 */
     .result-text p, .result-text li {
         line-height: 1.85 !important;
         margin-bottom: 16px !important;
@@ -103,10 +102,10 @@ if st.session_state.current_tab == "gbp":
         st.success("✅ 店舗名を抽出しました")
         st.info(f"**抽出された店舗名**\n{store_name}")
 
-        # 確認画面にクリックできるリンクを表示
+        # 確認画面にクリックできるリンクを表示（新しいタブで開く）
         st.markdown(f"""
         **この店舗のGoogle Mapsページ**  
-        [📍 {store_name} のGBPページを開く]({maps_url})
+        <a href="{maps_url}" target="_blank" rel="noopener noreferrer">📍 {store_name} のGBPページを開く</a>
         """, unsafe_allow_html=True)
 
         if st.button("✅ この店舗で合っています。診断を進める", type="primary", use_container_width=True):
