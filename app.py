@@ -1,7 +1,6 @@
 import streamlit as st
 from groq import Groq
 from datetime import datetime
-import requests
 
 # パスワード認証
 if "authenticated" not in st.session_state:
@@ -70,43 +69,43 @@ client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 if st.session_state.current_tab == "gbp":
     st.subheader("🔗 Google Maps URLから診断")
     maps_url = st.text_input("Google Mapsの店舗リンクを貼り付けてください（短縮リンクもOK）", 
-                            placeholder="https://maps.app.goo.gl/xxxxxx または https://www.google.com/maps/place/...")
-    text_info = st.text_area("追加テキスト情報（任意）", height=150)
+                            placeholder="https://maps.app.goo.gl/xxxxxx または https://www.google.com/maps/place/...", 
+                            key="maps_url_input")
 
-    if maps_url:
-        with st.spinner("リンクから店舗情報を取得して診断中..."):
-            # 短縮リンクの場合、自動で展開して店舗名を取得
+    # URLが入力されたら自動で診断開始
+    if maps_url and maps_url != st.session_state.get("last_url", ""):
+        st.session_state.last_url = maps_url
+        with st.spinner("リンクから店舗情報を取得して最高レベルの診断中..."):
+            # 短縮リンク展開
             if "maps.app.goo.gl" in maps_url:
                 try:
                     r = requests.get(maps_url, allow_redirects=True, timeout=8)
-                    maps_url = r.url  # フルURLに展開
+                    maps_url = r.url
                 except:
                     pass
 
-            prompt = f"""あなたはGoogle Business Profileの最高位専門家です。
+            system_prompt = f"""あなたはGoogle Business Profileの最高位専門家です。
 
 このGoogle Mapsリンクの店舗を徹底的に詳細に分析してください：
 {maps_url}
 
 まず最初に**実際の店舗名**を明確に書いてから分析を始めてください。
 
-出力形式：
+出力形式（各項目を長く詳細に）：
 1. 総合スコア: XX/100点 - 一言評価
 2. 規約違反チェック
 3. 即修正できる具体的な改善案
 4. 改善優先順位トップ5
 5. 先進施策（合法的なもののみ）
+6. 写真投稿分析と改善提案（現在の写真状況 + 具体的なおすすめ写真の種類・枚数・撮影方法 + 根拠）
 
 最後に免責事項を必ず入れてください。"""
 
-            messages = [{"role": "system", "content": prompt}]
-            if text_info.strip():
-                messages.append({"role": "user", "content": f"追加情報:\n{text_info}"})
-
+            messages = [{"role": "system", "content": system_prompt}]
             res = client.chat.completions.create(
                 model="meta-llama/llama-4-maverick-17b-128e-instruct",
                 messages=messages,
-                max_tokens=4000,
+                max_tokens=4200,
                 temperature=0.3
             )
             result = res.choices[0].message.content
