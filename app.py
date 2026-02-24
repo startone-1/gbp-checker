@@ -1,6 +1,7 @@
 import streamlit as st
 from groq import Groq
 from datetime import datetime
+import requests
 
 # パスワード認証
 if "authenticated" not in st.session_state:
@@ -16,50 +17,83 @@ if "authenticated" not in st.session_state:
 
 st.set_page_config(page_title="GBPチェックアプリ", page_icon="💼", layout="centered")
 
-st.title("💼 Google Business Profile 規約違反チェックアプリ")
+# 安定したレスポンシブデザイン
+st.markdown("""
+<style>
+    .main {background-color: #0a0f1c;}
+    .big-tab {
+        width: 100%;
+        padding: 35px 25px;
+        font-size: 1.65rem;
+        font-weight: 700;
+        border-radius: 20px;
+        margin-bottom: 22px;
+        text-align: center;
+        transition: all 0.4s ease;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    }
+    .big-tab-active {
+        background: linear-gradient(135deg, #3b82f6, #1e40af) !important;
+        color: white !important;
+        box-shadow: 0 15px 40px rgba(59, 130, 246, 0.5);
+        transform: translateY(-6px);
+    }
+    .big-tab-inactive {
+        background: #1e2937;
+        color: #94a3b8;
+    }
+    @media (max-width: 768px) {
+        .big-tab { font-size: 1.4rem; padding: 28px 20px; }
+    }
+</style>
+""", unsafe_allow_html=True)
+
+col1, col2 = st.columns(2)
+
+with col1:
+    if st.button("🔗 GBP診断", use_container_width=True, key="tab_gbp"):
+        st.session_state.current_tab = "gbp"
+
+with col2:
+    if st.button("💬 レビュー返信アシスタント", use_container_width=True, key="tab_review"):
+        st.session_state.current_tab = "review"
+
+if "current_tab" not in st.session_state:
+    st.session_state.current_tab = "gbp"
+
+st.markdown(f"""
+<div style="display:flex; gap:20px; margin-bottom:40px;">
+    <div class="big-tab {'big-tab-active' if st.session_state.current_tab == 'gbp' else 'big-tab-inactive'}">🔗 GBP診断</div>
+    <div class="big-tab {'big-tab-active' if st.session_state.current_tab == 'review' else 'big-tab-inactive'}">💬 レビュー返信アシスタント</div>
+</div>
+""", unsafe_allow_html=True)
 
 client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
-tab1, tab2 = st.tabs(["🔗 GBP診断", "💬 レビュー返信アシスタント"])
-
 # ==================== GBP診断 ====================
-with tab1:
-    st.subheader("Google Mapsのリンクを貼るか、店舗名で検索してください")
-
-    maps_url = st.text_input("Google Mapsの店舗リンクを貼り付けてください", 
+if st.session_state.current_tab == "gbp":
+    st.subheader("🔗 Google Maps URLから診断")
+    maps_url = st.text_input("Google Mapsの店舗リンクを貼り付けてください（短縮リンクも自動対応）", 
                             placeholder="https://maps.app.goo.gl/xxxxxx", key="maps_url")
 
-    store_name_search = st.text_input("または店舗名で検索", placeholder="例：東武ストア みずほ台店", key="store_search")
+    text_info = st.text_area("追加テキスト情報（任意）", height=150)
 
-    text_info = st.text_area("追加テキスト情報（任意）", height=100)
-
-    if maps_url or store_name_search:
-        if maps_url:
-            query = maps_url
+    if maps_url:
+        if not (maps_url.startswith("https://www.google.com/maps") or maps_url.startswith("https://maps.app.goo.gl")):
+            st.error("❌ Google Mapsの店舗URLまたは短縮リンクのみ対応しています。")
         else:
-            query = store_name_search
+            with st.spinner("リンクを展開して診断中..."):
+                if "maps.app.goo.gl" in maps_url:
+                    try:
+                        r = requests.get(maps_url, allow_redirects=True, timeout=10)
+                        maps_url = r.url
+                    except:
+                        pass
 
-        with st.spinner("店舗情報を確認中..."):
-            # 店舗名抽出
-            name_prompt = f"""以下の情報から正確な店舗名を抽出してください：
-{query}
-「店舗名: XXX」の形式で答えてください。"""
-            name_res = client.chat.completions.create(model="meta-llama/llama-4-maverick-17b-128e-instruct", messages=[{"role": "user", "content": name_prompt}], max_tokens=100, temperature=0.0)
-            store_name = name_res.choices[0].message.content.strip().replace("店舗名: ", "")
-
-        st.success(f"✅ **{store_name}** と認識しました")
-
-        # 確認用リンク（確実に新しいタブで開く）
-        if maps_url:
-            st.link_button(f"📍 {store_name} のGoogle Mapsページを確認", maps_url, use_container_width=True)
-
-        if st.button("✅ この店舗で合っています。診断を開始", type="primary", use_container_width=True):
-            with st.spinner("精密診断中..."):
                 system_prompt = f"""あなたはGoogle Business Profileの最高位専門家です。
 
-店舗名: **{store_name}**
-
-この店舗のGBPを徹底的に詳細に分析してください。
+このGoogle Mapsリンクの店舗を徹底的に詳細に分析してください：
+{maps_url}
 
 出力形式（各項目を長く詳細に）：
 1. 総合スコア: XX/100点 - 一言評価
@@ -76,14 +110,14 @@ with tab1:
                 res = client.chat.completions.create(model="meta-llama/llama-4-maverick-17b-128e-instruct", messages=messages, max_tokens=4000, temperature=0.3)
                 result = res.choices[0].message.content
 
-            st.success(f"✅ **{store_name}** の診断完了！")
+            st.success("✅ 診断完了！")
             st.markdown(result)
 
             today = datetime.now().strftime("%Y%m%d_%H%M")
             st.download_button("📄 診断結果をダウンロード", result, f"GBP診断_{today}.html", "text/html")
 
 # ==================== レビュー返信アシスタント ====================
-with tab2:
+if st.session_state.current_tab == "review":
     st.subheader("💬 レビュー返信アシスタント")
     st.write("お客様のレビューを貼り付けてください。GBPガイドラインに完全に準拠した誠実な返信文を複数パターン作成します。")
 
@@ -111,5 +145,31 @@ with tab2:
 
         st.success("✅ 返信文を作成しました")
         st.markdown(reply)
+
+# ==================== お問い合わせセクション ====================
+st.markdown("---")
+st.subheader("📩 もっとサポートが必要ですか？")
+st.write("以下の内容でサポートいたします。お気軽にご連絡ください。")
+
+st.write("""
+**よくあるサポート依頼例**
+- GBPの運用をまるごと任せたい
+- 月次診断レポートを毎月欲しい
+- 投稿文を定期的に作成してほしい
+- 悪いレビューの返信を代行してほしい
+- 競合店との比較分析を詳しくしてほしい
+- 写真撮影や投稿戦略のアドバイスが欲しい
+- その他、GBPに関する相談全般
+""")
+
+st.markdown(f"""
+<div style="text-align:center; margin:30px 0;">
+    <a href="mailto:gyoum2024@gmail.com?subject=GBP運用サポートのお問い合わせ" target="_blank">
+        <button style="background:#3b82f6; color:white; border:none; padding:18px 45px; font-size:1.25rem; border-radius:12px;">
+            ✉️ gyoum2024@gmail.com へ問い合わせる
+        </button>
+    </a>
+</div>
+""", unsafe_allow_html=True)
 
 st.caption("Powered by Groq | 04.sampleapp.work")
