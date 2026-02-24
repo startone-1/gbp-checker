@@ -17,7 +17,7 @@ if "authenticated" not in st.session_state:
 
 st.set_page_config(page_title="GBPチェックアプリ", page_icon="💼", layout="centered")
 
-# スマホで崩れにくい安定したデザイン（以前の良い状態を維持）
+# スマホで崩れにくい安定したデザイン（以前の状態を維持）
 st.markdown("""
 <style>
     .main {background-color: #0a0f1c;}
@@ -41,14 +41,6 @@ st.markdown("""
     .big-tab-inactive {
         background: #1e2937;
         color: #94a3b8;
-    }
-    .result-text p, .result-text li {
-        line-height: 1.85 !important;
-        margin-bottom: 16px !important;
-    }
-    @media (max-width: 768px) {
-        .big-tab { font-size: 1.4rem; padding: 28px 20px; }
-        .result-text p, .result-text li { font-size: 1.02rem !important; line-height: 1.9 !important; }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -85,27 +77,28 @@ if st.session_state.current_tab == "gbp":
 
     if maps_url:
         with st.spinner("リンクを展開して店舗名を抽出中..."):
-            original_url = maps_url
+            # 短縮リンクを確実に展開
             if "maps.app.goo.gl" in maps_url:
                 try:
-                    r = requests.get(maps_url, allow_redirects=True, timeout=10)
+                    r = requests.get(maps_url, allow_redirects=True, timeout=15)
                     maps_url = r.url
                 except:
                     pass
 
-            name_prompt = f"""このGoogle Mapsリンクから正確な店舗名を抽出してください：
-{maps_url}
+            # 店舗名を確実に抽出
+            name_prompt = f"""このGoogle Mapsリンクから**正確な店舗名**を抽出してください。
+リンク: {maps_url}
 「店舗名: XXX」の形式で答えてください。"""
-            name_res = client.chat.completions.create(model="meta-llama/llama-4-maverick-17b-128e-instruct", messages=[{"role": "user", "content": name_prompt}], max_tokens=100, temperature=0.0)
-            store_name = name_res.choices[0].message.content.strip().replace("店舗名: ", "")
+            name_res = client.chat.completions.create(model="meta-llama/llama-4-maverick-17b-128e-instruct", messages=[{"role": "user", "content": name_prompt}], max_tokens=150, temperature=0.0)
+            store_name = name_res.choices[0].message.content.strip().replace("店舗名: ", "").strip()
 
         st.success("✅ 店舗名を抽出しました")
-        st.info(f"**抽出された店舗名**\n{store_name}")
+        st.info(f"**抽出された店舗名**\n**{store_name}**")
 
-        # 確認画面にクリックできるリンクを表示（新しいタブで開く）
+        # 確認画面にリンクを表示
         st.markdown(f"""
         **この店舗のGoogle Mapsページ**  
-        <a href="{maps_url}" target="_blank" rel="noopener noreferrer">📍 {store_name} のGBPページを開く</a>
+        [📍 {store_name} のページを開く]({maps_url})
         """, unsafe_allow_html=True)
 
         if st.button("✅ この店舗で合っています。診断を進める", type="primary", use_container_width=True):
