@@ -16,10 +16,9 @@ if "authenticated" not in st.session_state:
 
 st.set_page_config(page_title="GBPチェックアプリ", page_icon="💼", layout="centered")
 
-# 目立つ切り替えUI（変更なし）
+# 目立つ切り替えUI
 st.markdown("""
 <style>
-    .main {background-color: #0a0f1c;}
     .big-tab {
         width: 100%;
         padding: 35px 25px;
@@ -40,16 +39,6 @@ st.markdown("""
     .big-tab-inactive {
         background: #1e2937;
         color: #94a3b8;
-    }
-    /* スマホでのテキスト読みやすさ大幅強化 */
-    .result-text p, .result-text li, .result-text h1, .result-text h2 {
-        line-height: 1.85 !important;
-        margin-bottom: 18px !important;
-        font-size: 1.05rem !important;
-    }
-    @media (max-width: 768px) {
-        .big-tab { font-size: 1.4rem; padding: 28px 20px; }
-        .result-text p, .result-text li { font-size: 1.02rem !important; line-height: 1.9 !important; }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -116,7 +105,7 @@ if st.session_state.current_tab == "gbp":
             result = res.choices[0].message.content
 
         st.success("✅ 診断完了！")
-        st.markdown(f'<div class="result-text">{result}</div>', unsafe_allow_html=True)
+        st.markdown(result)
 
         today = datetime.now().strftime("%Y%m%d_%H%M")
         st.download_button("📄 診断結果をダウンロード", result, f"GBP診断_{today}.html", "text/html")
@@ -150,5 +139,34 @@ if st.session_state.current_tab == "review":
 
         st.success("✅ 返信文を作成しました")
         st.markdown(reply)
+
+# ==================== お問い合わせセクション（最下部に常時表示） ====================
+st.markdown("---")
+st.subheader("📩 もっとサポートが必要ですか？")
+
+st.write("""
+**gyoum2024@gmail.com** までお気軽にご連絡ください。
+
+### よくあるサポート依頼例
+- GBPの運用をまるごと任せたい
+- 月次診断レポートを毎月欲しい
+- 投稿文を定期的に作成してほしい
+- 悪いレビューの返信を代行してほしい
+- 競合店との比較分析を詳しくしてほしい
+- 写真撮影や投稿戦略のアドバイスが欲しい
+- その他、GBPに関する相談全般
+
+24時間以内に返信いたします。
+""")
+
+st.markdown(f"""
+<div style="text-align:center; margin:30px 0;">
+    <a href="mailto:gyoum2024@gmail.com?subject=GBP運用サポートのお問い合わせ" target="_blank">
+        <button style="background:#3b82f6; color:white; border:none; padding:18px 40px; font-size:1.2rem; border-radius:12px; cursor:pointer;">
+            ✉️ gyoum2024@gmail.com へメールで問い合わせる
+        </button>
+    </a>
+</div>
+""", unsafe_allow_html=True)
 
 st.caption("Powered by Groq | 04.sampleapp.work")
