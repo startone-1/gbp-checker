@@ -16,9 +16,10 @@ if "authenticated" not in st.session_state:
 
 st.set_page_config(page_title="GBPチェックアプリ", page_icon="💼", layout="centered")
 
-# 目立つ切り替えUI
+# スマホでも崩れないクールデザイン
 st.markdown("""
 <style>
+    .main {background-color: #0a0f1c;}
     .big-tab {
         width: 100%;
         padding: 35px 25px;
@@ -39,6 +40,21 @@ st.markdown("""
     .big-tab-inactive {
         background: #1e2937;
         color: #94a3b8;
+    }
+    /* スマホ専用修正 */
+    @media (max-width: 768px) {
+        .big-tab { 
+            font-size: 1.4rem; 
+            padding: 28px 18px; 
+            margin-bottom: 18px;
+        }
+        .stTextInput, .stTextArea, .stButton {
+            margin-bottom: 18px;
+        }
+        .result-text p, .result-text li {
+            line-height: 1.85 !important;
+            font-size: 1.02rem !important;
+        }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -139,34 +155,5 @@ if st.session_state.current_tab == "review":
 
         st.success("✅ 返信文を作成しました")
         st.markdown(reply)
-
-# ==================== お問い合わせセクション（最下部に常時表示） ====================
-st.markdown("---")
-st.subheader("📩 もっとサポートが必要ですか？")
-
-st.write("""
-**gyoum2024@gmail.com** までお気軽にご連絡ください。
-
-### よくあるサポート依頼例
-- GBPの運用をまるごと任せたい
-- 月次診断レポートを毎月欲しい
-- 投稿文を定期的に作成してほしい
-- 悪いレビューの返信を代行してほしい
-- 競合店との比較分析を詳しくしてほしい
-- 写真撮影や投稿戦略のアドバイスが欲しい
-- その他、GBPに関する相談全般
-
-24時間以内に返信いたします。
-""")
-
-st.markdown(f"""
-<div style="text-align:center; margin:30px 0;">
-    <a href="mailto:gyoum2024@gmail.com?subject=GBP運用サポートのお問い合わせ" target="_blank">
-        <button style="background:#3b82f6; color:white; border:none; padding:18px 40px; font-size:1.2rem; border-radius:12px; cursor:pointer;">
-            ✉️ gyoum2024@gmail.com へメールで問い合わせる
-        </button>
-    </a>
-</div>
-""", unsafe_allow_html=True)
 
 st.caption("Powered by Groq | 04.sampleapp.work")
