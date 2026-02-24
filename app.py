@@ -1,6 +1,7 @@
 import streamlit as st
 from groq import Groq
 from datetime import datetime
+import requests
 
 # パスワード認証
 if "authenticated" not in st.session_state:
@@ -16,7 +17,7 @@ if "authenticated" not in st.session_state:
 
 st.set_page_config(page_title="GBPチェックアプリ", page_icon="💼", layout="centered")
 
-# スマホで崩れにくい安定したデザイン（以前の良い状態を維持）
+# スマホで崩れにくい安定したデザイン
 st.markdown("""
 <style>
     .main {background-color: #0a0f1c;}
@@ -41,7 +42,6 @@ st.markdown("""
         background: #1e2937;
         color: #94a3b8;
     }
-    /* スマホでのテキスト読みやすさ改善 */
     .result-text p, .result-text li {
         line-height: 1.85 !important;
         margin-bottom: 16px !important;
@@ -84,7 +84,8 @@ if st.session_state.current_tab == "gbp":
     text_info = st.text_area("追加テキスト情報（任意）", height=150)
 
     if maps_url:
-        with st.spinner("リンクから店舗名を抽出中..."):
+        with st.spinner("リンクを展開して店舗名を抽出中..."):
+            original_url = maps_url
             if "maps.app.goo.gl" in maps_url:
                 try:
                     r = requests.get(maps_url, allow_redirects=True, timeout=10)
@@ -100,6 +101,12 @@ if st.session_state.current_tab == "gbp":
 
         st.success("✅ 店舗名を抽出しました")
         st.info(f"**抽出された店舗名**\n{store_name}")
+
+        # 確認画面にURLリンクを表示
+        st.markdown(f"""
+        **この店舗のGoogle Mapsページ**  
+        [📍 {store_name} のGBPページを開く]({maps_url})
+        """, unsafe_allow_html=True)
 
         if st.button("✅ この店舗で合っています。診断を進める", type="primary", use_container_width=True):
             with st.spinner("この店舗のGBPとして精密診断中..."):
@@ -125,7 +132,7 @@ if st.session_state.current_tab == "gbp":
                 result = res.choices[0].message.content
 
             st.success(f"✅ **{store_name}** の診断完了！")
-            st.markdown(f'<div class="result-text">{result}</div>', unsafe_allow_html=True)
+            st.markdown(result)
 
             today = datetime.now().strftime("%Y%m%d_%H%M")
             st.download_button("📄 診断結果をダウンロード", result, f"GBP診断_{today}.html", "text/html")
