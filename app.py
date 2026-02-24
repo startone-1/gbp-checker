@@ -17,30 +17,29 @@ if "authenticated" not in st.session_state:
 
 st.set_page_config(page_title="GBPチェックアプリ", page_icon="💼", layout="centered")
 
-# スマホで崩れにくい安定したデザイン（以前の状態を維持）
+# シンプルで安定したデザイン（スマホ崩れを最小限に）
 st.markdown("""
 <style>
     .main {background-color: #0a0f1c;}
     .big-tab {
         width: 100%;
-        padding: 35px 25px;
-        font-size: 1.65rem;
+        padding: 32px 20px;
+        font-size: 1.6rem;
         font-weight: 700;
-        border-radius: 20px;
-        margin-bottom: 22px;
+        border-radius: 18px;
+        margin-bottom: 20px;
         text-align: center;
-        transition: all 0.4s ease;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
     }
     .big-tab-active {
         background: linear-gradient(135deg, #3b82f6, #1e40af) !important;
         color: white !important;
-        box-shadow: 0 15px 40px rgba(59, 130, 246, 0.5);
-        transform: translateY(-6px);
     }
     .big-tab-inactive {
         background: #1e2937;
         color: #94a3b8;
+    }
+    @media (max-width: 768px) {
+        .big-tab { font-size: 1.35rem; padding: 25px 15px; }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -59,7 +58,7 @@ if "current_tab" not in st.session_state:
     st.session_state.current_tab = "gbp"
 
 st.markdown(f"""
-<div style="display:flex; gap:20px; margin-bottom:40px;">
+<div style="display:flex; gap:15px; margin-bottom:35px;">
     <div class="big-tab {'big-tab-active' if st.session_state.current_tab == 'gbp' else 'big-tab-inactive'}">🔗 GBP診断</div>
     <div class="big-tab {'big-tab-active' if st.session_state.current_tab == 'review' else 'big-tab-inactive'}">💬 レビュー返信アシスタント</div>
 </div>
@@ -73,24 +72,22 @@ if st.session_state.current_tab == "gbp":
     maps_url = st.text_input("Google Mapsの店舗リンクを貼り付けてください（短縮リンクも自動対応）", 
                             placeholder="https://maps.app.goo.gl/xxxxxx", key="maps_url")
 
-    text_info = st.text_area("追加テキスト情報（任意）", height=150)
+    text_info = st.text_area("追加テキスト情報（任意）", height=120)
 
     if maps_url:
         with st.spinner("リンクを展開して店舗名を抽出中..."):
-            # 短縮リンクを確実に展開
             if "maps.app.goo.gl" in maps_url:
                 try:
-                    r = requests.get(maps_url, allow_redirects=True, timeout=15)
+                    r = requests.get(maps_url, allow_redirects=True, timeout=10)
                     maps_url = r.url
                 except:
                     pass
 
-            # 店舗名を確実に抽出
-            name_prompt = f"""このGoogle Mapsリンクから**正確な店舗名**を抽出してください。
-リンク: {maps_url}
+            name_prompt = f"""このGoogle Mapsリンクから正確な店舗名を抽出してください：
+{maps_url}
 「店舗名: XXX」の形式で答えてください。"""
-            name_res = client.chat.completions.create(model="meta-llama/llama-4-maverick-17b-128e-instruct", messages=[{"role": "user", "content": name_prompt}], max_tokens=150, temperature=0.0)
-            store_name = name_res.choices[0].message.content.strip().replace("店舗名: ", "").strip()
+            name_res = client.chat.completions.create(model="meta-llama/llama-4-maverick-17b-128e-instruct", messages=[{"role": "user", "content": name_prompt}], max_tokens=100, temperature=0.0)
+            store_name = name_res.choices[0].message.content.strip().replace("店舗名: ", "")
 
         st.success("✅ 店舗名を抽出しました")
         st.info(f"**抽出された店舗名**\n**{store_name}**")
