@@ -17,7 +17,7 @@ if "authenticated" not in st.session_state:
 
 st.set_page_config(page_title="GBPチェックアプリ", page_icon="💼", layout="centered")
 
-# 安定したデザイン
+# 以前の安定したレスポンシブデザインを維持
 st.markdown("""
 <style>
     .main {background-color: #0a0f1c;}
@@ -29,10 +29,14 @@ st.markdown("""
         border-radius: 20px;
         margin-bottom: 22px;
         text-align: center;
+        transition: all 0.4s ease;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
     }
     .big-tab-active {
         background: linear-gradient(135deg, #3b82f6, #1e40af) !important;
         color: white !important;
+        box-shadow: 0 15px 40px rgba(59, 130, 246, 0.5);
+        transform: translateY(-6px);
     }
     .big-tab-inactive {
         background: #1e2937;
@@ -92,7 +96,7 @@ if st.session_state.current_tab == "gbp":
         st.success("✅ 店舗名を抽出しました")
         st.info(f"**抽出された店舗名**\n**{store_name}**")
 
-        # 確認用リンク（新しいタブで開く）
+        # 確認画面にクリックできるリンクを表示（新しいタブで開く）
         st.markdown(f"""
         **この店舗のGoogle Mapsページ**  
         <a href="{maps_url}" target="_blank" rel="noopener noreferrer">📍 {store_name} のGBPページを開く</a>
