@@ -76,10 +76,8 @@ if st.session_state.current_tab == "gbp":
     maps_url = st.text_input("Google Mapsの店舗リンクを貼り付けてください（短縮リンクも自動対応）", 
                             placeholder="https://maps.app.goo.gl/xxxxxx", key="maps_url")
 
-    text_info = st.text_area("追加テキスト情報（任意）", height=150)
-
     if maps_url:
-        with st.spinner("リンクを展開して診断中..."):
+        with st.spinner("リンクを展開して店舗名を抽出中..."):
             if "maps.app.goo.gl" in maps_url:
                 try:
                     r = requests.get(maps_url, allow_redirects=True, timeout=10)
@@ -87,34 +85,47 @@ if st.session_state.current_tab == "gbp":
                 except:
                     pass
 
-            system_prompt = f"""あなたはGoogle Business Profile公式Product Experts Programの全階層の知見を総合した最高位の専門家です。
-
-このGoogle Mapsリンクの店舗を、**本当にこの店舗をしっかり見て**徹底的に詳細に分析してください：
+            name_prompt = f"""このGoogle Mapsリンクから正確な店舗名を抽出してください：
 {maps_url}
+「店舗名: XXX」の形式で答えてください。"""
+            name_res = client.chat.completions.create(model="meta-llama/llama-4-maverick-17b-128e-instruct", messages=[{"role": "user", "content": name_prompt}], max_tokens=100, temperature=0.0)
+            store_name = name_res.choices[0].message.content.strip().replace("店舗名: ", "")
 
-**特に厳密にチェックすること**：
-- 店舗URLの項目にInstagram.com、Facebook.com、Twitter.comなどのSNS URLが入っていないか（これらは明確な規約違反で、アカウント停止のリスクが高い）
+        st.success("✅ 店舗名を抽出しました")
+        st.info(f"**抽出された店舗名**\n**{store_name}**")
+
+        st.markdown(f"""
+        **この店舗のGoogle Mapsページ**  
+        [📍 {store_name} のGBPページを開く]({maps_url})
+        """, unsafe_allow_html=True)
+
+        if st.button("✅ この店舗で合っています。診断を進める", type="primary", use_container_width=True):
+            with st.spinner("この店舗のGBPとして精密診断中..."):
+                system_prompt = f"""あなたはGoogle Business Profile公式Product Experts Programの全階層（Diamond, Platinum, Gold, Silver, Bronze）の知見を総合した最高位の専門家です。
+
+店舗名: **{store_name}**
+
+この特定の店舗のGBPを、**本当にこの店舗をしっかり見て**徹底的に詳細に分析してください。
+一般論は一切禁止。この店舗固有の問題点と改善策を重点的に長く書いてください。
 
 出力形式（各項目を長く、じっくり、細かく書いてください）：
 1. 総合スコア: XX/100点 - 一言評価
-2. 規約違反チェック（特に店舗URLの項目を厳密に確認し、違反があればリスクを詳細に説明）
+2. 規約違反チェック（特に店舗URLの項目にInstagram・ホームページ以外のURLが入っていないか厳密に確認）
 3. 即修正できる具体的な改善案（この店舗に合わせた具体的な提案、コピペOK文例を複数付きで長く）
 4. 改善優先順位トップ5（この店舗固有の理由を詳しく）
 5. 先進施策（合法的なもののみ・この店舗に合わせた具体的な提案）
 
 最後に免責事項を必ず入れてください。"""
 
-            messages = [{"role": "system", "content": system_prompt}]
-            if text_info.strip():
-                messages.append({"role": "user", "content": f"追加情報:\n{text_info}"})
-            res = client.chat.completions.create(model="meta-llama/llama-4-maverick-17b-128e-instruct", messages=messages, max_tokens=4500, temperature=0.3)
-            result = res.choices[0].message.content
+                messages = [{"role": "system", "content": system_prompt}]
+                res = client.chat.completions.create(model="meta-llama/llama-4-maverick-17b-128e-instruct", messages=messages, max_tokens=4800, temperature=0.3)
+                result = res.choices[0].message.content
 
-        st.success("✅ 診断完了！")
-        st.markdown(result)
+            st.success(f"✅ **{store_name}** の診断完了！")
+            st.markdown(result)
 
-        today = datetime.now().strftime("%Y%m%d_%H%M")
-        st.download_button("📄 診断結果をダウンロード", result, f"GBP診断_{today}.html", "text/html")
+            today = datetime.now().strftime("%Y%m%d_%H%M")
+            st.download_button("📄 診断結果をダウンロード", result, f"GBP診断_{today}.html", "text/html")
 
 # ==================== レビュー返信アシスタント ====================
 if st.session_state.current_tab == "review":
