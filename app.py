@@ -17,7 +17,7 @@ if "authenticated" not in st.session_state:
 
 st.set_page_config(page_title="GBPチェックアプリ", page_icon="💼", layout="centered")
 
-# 現在の安定したレスポンシブデザインを維持
+# 安定したレスポンシブデザインを維持
 st.markdown("""
 <style>
     .main {background-color: #0a0f1c;}
@@ -76,8 +76,6 @@ if st.session_state.current_tab == "gbp":
     maps_url = st.text_input("Google Mapsの店舗リンクを貼り付けてください（短縮リンクも自動対応）", 
                             placeholder="https://maps.app.goo.gl/xxxxxx", key="maps_url")
 
-    text_info = st.text_area("追加テキスト情報（任意）", height=150)
-
     if maps_url:
         with st.spinner("リンクを展開して店舗名を抽出中..."):
             if "maps.app.goo.gl" in maps_url:
@@ -96,33 +94,30 @@ if st.session_state.current_tab == "gbp":
         st.success("✅ 店舗名を抽出しました")
         st.info(f"**抽出された店舗名**\n**{store_name}**")
 
-        # 確認画面にクリックできるボタンでリンクを表示
-        st.link_button(f"📍 {store_name} のGoogle Mapsページを開く", maps_url, use_container_width=True)
+        st.markdown(f"""
+        **この店舗のGoogle Mapsページ**  
+        [📍 {store_name} のGBPページを開く]({maps_url})
+        """, unsafe_allow_html=True)
 
         if st.button("✅ この店舗で合っています。診断を進める", type="primary", use_container_width=True):
             with st.spinner("この店舗のGBPとして精密診断中..."):
-                system_prompt = f"""あなたはGoogle Business Profile公式Product Experts Programの全階層の知見を総合した最高位の専門家です。
+                system_prompt = f"""あなたはGoogle Business Profileの最高位専門家です。
 
 店舗名: **{store_name}**
 
-この特定の店舗のGBPを、**本当にこの店舗をしっかり見て**徹底的に詳細に分析してください。
+この特定の店舗のGBPを徹底的に詳細に分析してください。
 
-特に重要なチェック：
-- 店舗URLの項目にInstagram.comやホームページ以外のURLが入っていないか（規約違反）
-
-出力形式（各項目を長く、じっくり、細かく書いてください）：
+出力形式（各項目を長く詳細に）：
 1. 総合スコア: XX/100点 - 一言評価
-2. 規約違反チェック（特に店舗URLの項目を厳密に確認）
-3. 即修正できる具体的な改善案（この店舗に合わせた具体的な提案、コピペOK文例を複数付きで長く）
-4. 改善優先順位トップ5（この店舗固有の理由を詳しく）
-5. 先進施策（合法的なもののみ・この店舗に合わせた具体的な提案）
+2. 規約違反チェック
+3. 即修正できる具体的な改善案
+4. 改善優先順位トップ5
+5. 先進施策（合法的なもののみ）
 
 最後に免責事項を必ず入れてください。"""
 
                 messages = [{"role": "system", "content": system_prompt}]
-                if text_info.strip():
-                    messages.append({"role": "user", "content": f"追加情報:\n{text_info}"})
-                res = client.chat.completions.create(model="meta-llama/llama-4-maverick-17b-128e-instruct", messages=messages, max_tokens=4500, temperature=0.3)
+                res = client.chat.completions.create(model="meta-llama/llama-4-maverick-17b-128e-instruct", messages=messages, max_tokens=4000, temperature=0.3)
                 result = res.choices[0].message.content
 
             st.success(f"✅ **{store_name}** の診断完了！")
