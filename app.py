@@ -1,6 +1,7 @@
 import streamlit as st
 from groq import Groq
 from datetime import datetime
+import requests
 
 # パスワード認証
 if "authenticated" not in st.session_state:
@@ -21,27 +22,24 @@ st.markdown("""
 <style>
     .big-tab {
         width: 100%;
-        padding: 32px 20px;
-        font-size: 1.55rem;
-        font-weight: bold;
-        border-radius: 18px;
-        margin-bottom: 20px;
+        padding: 35px 25px;
+        font-size: 1.65rem;
+        font-weight: 700;
+        border-radius: 20px;
+        margin-bottom: 22px;
         text-align: center;
-        transition: all 0.3s ease;
-        box-shadow: 0 8px 25px rgba(0,0,0,0.25);
+        transition: all 0.4s ease;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
     }
     .big-tab-active {
-        background: linear-gradient(90deg, #3b82f6, #1e40af) !important;
+        background: linear-gradient(135deg, #3b82f6, #1e40af) !important;
         color: white !important;
-        box-shadow: 0 15px 35px rgba(59, 130, 246, 0.5);
-        transform: translateY(-4px);
+        box-shadow: 0 15px 40px rgba(59, 130, 246, 0.5);
+        transform: translateY(-6px);
     }
     .big-tab-inactive {
         background: #1e2937;
         color: #94a3b8;
-    }
-    @media (max-width: 768px) {
-        .big-tab { font-size: 1.35rem; padding: 25px 15px; }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -60,7 +58,7 @@ if "current_tab" not in st.session_state:
     st.session_state.current_tab = "gbp"
 
 st.markdown(f"""
-<div style="display:flex; gap:18px; margin-bottom:35px;">
+<div style="display:flex; gap:20px; margin-bottom:40px;">
     <div class="big-tab {'big-tab-active' if st.session_state.current_tab == 'gbp' else 'big-tab-inactive'}">🔗 GBP診断</div>
     <div class="big-tab {'big-tab-active' if st.session_state.current_tab == 'review' else 'big-tab-inactive'}">💬 レビュー返信アシスタント</div>
 </div>
@@ -71,28 +69,26 @@ client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 # ==================== GBP診断 ====================
 if st.session_state.current_tab == "gbp":
     st.subheader("🔗 Google Maps URLから診断")
-    maps_url = st.text_input("Google Mapsの店舗URLを貼り付けてください", placeholder="https://www.google.com/maps/place/...")
-    text_info = st.text_area("追加テキスト情報（任意でより精度が上がります）", height=150)
-    
-    if st.button("🚀 URLから本格診断を開始", type="primary", use_container_width=True):
-        if not maps_url:
-            st.error("URLを入力してください")
-            st.stop()
+    maps_url = st.text_input("Google Mapsの店舗リンクを貼り付けてください（短縮リンクもOK）", 
+                            placeholder="https://maps.app.goo.gl/xxxxxx または https://www.google.com/maps/place/...")
+    text_info = st.text_area("追加テキスト情報（任意）", height=150)
 
-        with st.spinner("店舗名を抽出して精密診断中..."):
-            # まず店舗名を抽出
-            name_prompt = f"""このGoogle Maps URLの店舗名を正確に抽出してください：
+    if maps_url:
+        with st.spinner("リンクから店舗情報を取得して診断中..."):
+            # 短縮リンクの場合、自動で展開して店舗名を取得
+            if "maps.app.goo.gl" in maps_url:
+                try:
+                    r = requests.get(maps_url, allow_redirects=True, timeout=8)
+                    maps_url = r.url  # フルURLに展開
+                except:
+                    pass
+
+            prompt = f"""あなたはGoogle Business Profileの最高位専門家です。
+
+このGoogle Mapsリンクの店舗を徹底的に詳細に分析してください：
 {maps_url}
-「店舗名: XXX」の形式で答えてください。"""
-            name_res = client.chat.completions.create(model="meta-llama/llama-4-maverick-17b-128e-instruct", messages=[{"role": "user", "content": name_prompt}], max_tokens=100, temperature=0.0)
-            store_name = name_res.choices[0].message.content.strip()
 
-            # 本診断
-            system_prompt = f"""あなたはGoogle Business Profileの最高位専門家です。
-
-店舗名: **{store_name}**
-
-この店舗のGBPを徹底的に詳細に分析してください。
+まず最初に**実際の店舗名**を明確に書いてから分析を始めてください。
 
 出力形式：
 1. 総合スコア: XX/100点 - 一言評価
@@ -103,13 +99,19 @@ if st.session_state.current_tab == "gbp":
 
 最後に免責事項を必ず入れてください。"""
 
-            messages = [{"role": "system", "content": system_prompt}]
+            messages = [{"role": "system", "content": prompt}]
             if text_info.strip():
                 messages.append({"role": "user", "content": f"追加情報:\n{text_info}"})
-            res = client.chat.completions.create(model="meta-llama/llama-4-maverick-17b-128e-instruct", messages=messages, max_tokens=4000, temperature=0.3)
+
+            res = client.chat.completions.create(
+                model="meta-llama/llama-4-maverick-17b-128e-instruct",
+                messages=messages,
+                max_tokens=4000,
+                temperature=0.3
+            )
             result = res.choices[0].message.content
 
-        st.success(f"✅ **{store_name}** の診断完了！")
+        st.success("✅ 診断完了！")
         st.markdown(result)
 
         today = datetime.now().strftime("%Y%m%d_%H%M")
@@ -136,11 +138,6 @@ if st.session_state.current_tab == "review":
 {review_text}
 
 種類：{review_type}
-
-ポイント：
-- 常に感謝を最初に伝える
-- 悪いレビューでも感情的にならず、改善意欲を明確に
-- 自然で人間味のある文章にする
 
 各パターンを「パターン1」「パターン2」「パターン3」として明確に分けて出力してください。"""
 
