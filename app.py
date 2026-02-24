@@ -1,7 +1,6 @@
 import streamlit as st
 from groq import Groq
 from datetime import datetime
-import requests
 
 # パスワード認証
 if "authenticated" not in st.session_state:
@@ -17,29 +16,39 @@ if "authenticated" not in st.session_state:
 
 st.set_page_config(page_title="GBPチェックアプリ", page_icon="💼", layout="centered")
 
-# 目立つ切り替えUI
+# 超クールなネオンテーマ
 st.markdown("""
 <style>
+    .main {background-color: #0a0f1c;}
     .big-tab {
         width: 100%;
-        padding: 35px 25px;
-        font-size: 1.65rem;
+        padding: 38px 25px;
+        font-size: 1.7rem;
         font-weight: 700;
-        border-radius: 20px;
-        margin-bottom: 22px;
+        border-radius: 22px;
+        margin-bottom: 25px;
         text-align: center;
         transition: all 0.4s ease;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        box-shadow: 0 0 30px rgba(59, 130, 246, 0.4);
+        border: 1px solid rgba(59, 130, 246, 0.3);
     }
     .big-tab-active {
-        background: linear-gradient(135deg, #3b82f6, #1e40af) !important;
+        background: linear-gradient(135deg, #3b82f6, #1e40af, #6366f1) !important;
         color: white !important;
-        box-shadow: 0 15px 40px rgba(59, 130, 246, 0.5);
+        box-shadow: 0 0 45px rgba(59, 130, 246, 0.8);
         transform: translateY(-6px);
+        border: 1px solid #60a5fa;
     }
     .big-tab-inactive {
         background: #1e2937;
         color: #94a3b8;
+        border: 1px solid #334155;
+    }
+    .neon-text {
+        text-shadow: 0 0 15px #3b82f6;
+    }
+    @media (max-width: 768px) {
+        .big-tab { font-size: 1.45rem; padding: 30px 20px; }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -69,22 +78,19 @@ client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 # ==================== GBP診断 ====================
 if st.session_state.current_tab == "gbp":
     st.subheader("🔗 Google Maps URLから診断")
-    maps_url = st.text_input("Google Mapsの店舗リンクを貼り付けてください（短縮リンクも自動対応）", 
-                            placeholder="https://maps.app.goo.gl/xxxxxx または https://www.google.com/maps/place/...")
+    maps_url = st.text_input("Google Mapsの店舗リンクを貼り付けてください（短縮リンクもOK）", 
+                            placeholder="https://maps.app.goo.gl/xxxxxx", key="maps_url")
+    text_info = st.text_area("追加テキスト情報（任意）", height=150)
 
-    text_info = st.text_area("追加テキスト情報（任意でより精度が上がります）", height=150)
-
-    # URLが入力されたら即自動診断
     if maps_url:
-        with st.spinner("短縮リンクを展開して診断中..."):
-            # 短縮リンクを自動展開
-            original_url = maps_url
+        with st.spinner("リンクを展開して診断中..."):
+            # 短縮リンク自動展開
             if "maps.app.goo.gl" in maps_url:
                 try:
                     r = requests.get(maps_url, allow_redirects=True, timeout=10)
-                    maps_url = r.url  # 本当のフルURLに展開
+                    maps_url = r.url
                 except:
-                    maps_url = original_url
+                    pass
 
             system_prompt = f"""あなたはGoogle Business Profileの最高位専門家です。
 
@@ -105,13 +111,7 @@ if st.session_state.current_tab == "gbp":
             messages = [{"role": "system", "content": system_prompt}]
             if text_info.strip():
                 messages.append({"role": "user", "content": f"追加情報:\n{text_info}"})
-
-            res = client.chat.completions.create(
-                model="meta-llama/llama-4-maverick-17b-128e-instruct",
-                messages=messages,
-                max_tokens=4000,
-                temperature=0.3
-            )
+            res = client.chat.completions.create(model="meta-llama/llama-4-maverick-17b-128e-instruct", messages=messages, max_tokens=4000, temperature=0.3)
             result = res.choices[0].message.content
 
         st.success("✅ 診断完了！")
