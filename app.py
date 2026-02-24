@@ -17,7 +17,7 @@ if "authenticated" not in st.session_state:
 
 st.set_page_config(page_title="GBPチェックアプリ", page_icon="💼", layout="centered")
 
-# 現在の美しいデザインを完全に維持
+# 現在の安定したレスポンシブデザインを維持
 st.markdown("""
 <style>
     .main {background-color: #0a0f1c;}
@@ -41,6 +41,9 @@ st.markdown("""
     .big-tab-inactive {
         background: #1e2937;
         color: #94a3b8;
+    }
+    @media (max-width: 768px) {
+        .big-tab { font-size: 1.4rem; padding: 28px 20px; }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -89,11 +92,13 @@ if st.session_state.current_tab == "gbp":
 このGoogle Mapsリンクの店舗を、**本当にこの店舗をしっかり見て**徹底的に詳細に分析してください：
 {maps_url}
 
-分析は長く、じっくり、細かく行ってください。一般論は禁止。この店舗固有の問題点と改善策を重点的に。
+特に重要なチェック項目：
+- 店舗URLの項目にInstagram.comやホームページ以外のURLが入っていないか（規約違反）
+- 写真・投稿・属性・レビュー返信などの状況を具体的に見て問題点を指摘
 
-出力形式（各項目を長く詳細に）：
+出力形式（各項目を長く、じっくり、細かく書いてください）：
 1. 総合スコア: XX/100点 - 一言評価
-2. 規約違反チェック（特に店舗URLの項目にInstagram・ホームページ以外のURLが入っていないか厳密に確認）
+2. 規約違反チェック（特に店舗URLの項目を厳密に確認）
 3. 即修正できる具体的な改善案（この店舗に合わせた具体的な提案、コピペOK文例を複数付きで長く）
 4. 改善優先順位トップ5（この店舗固有の理由を詳しく）
 5. 先進施策（合法的なもののみ・この店舗に合わせた具体的な提案）
@@ -106,7 +111,7 @@ if st.session_state.current_tab == "gbp":
             res = client.chat.completions.create(model="meta-llama/llama-4-maverick-17b-128e-instruct", messages=messages, max_tokens=4500, temperature=0.3)
             result = res.choices[0].message.content
 
-        st.success("✅ 診断完了！")
+        st.success("✅ 診断完了！（この店舗をしっかり見て詳細に分析しました）")
         st.markdown(result)
 
         today = datetime.now().strftime("%Y%m%d_%H%M")
