@@ -16,7 +16,7 @@ if "authenticated" not in st.session_state:
 
 st.set_page_config(page_title="GBPチェックアプリ", page_icon="💼", layout="centered")
 
-# 目立つ切り替えUI（変更なし）
+# スマホで崩れにくい安定したデザイン（以前の良い状態を維持）
 st.markdown("""
 <style>
     .main {background-color: #0a0f1c;}
@@ -40,6 +40,15 @@ st.markdown("""
     .big-tab-inactive {
         background: #1e2937;
         color: #94a3b8;
+    }
+    /* スマホでのテキスト読みやすさ改善 */
+    .result-text p, .result-text li {
+        line-height: 1.85 !important;
+        margin-bottom: 16px !important;
+    }
+    @media (max-width: 768px) {
+        .big-tab { font-size: 1.4rem; padding: 28px 20px; }
+        .result-text p, .result-text li { font-size: 1.02rem !important; line-height: 1.9 !important; }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -74,7 +83,6 @@ if st.session_state.current_tab == "gbp":
 
     text_info = st.text_area("追加テキスト情報（任意）", height=150)
 
-    # URL入力されたら自動で店舗名抽出
     if maps_url:
         with st.spinner("リンクから店舗名を抽出中..."):
             if "maps.app.goo.gl" in maps_url:
@@ -93,7 +101,6 @@ if st.session_state.current_tab == "gbp":
         st.success("✅ 店舗名を抽出しました")
         st.info(f"**抽出された店舗名**\n{store_name}")
 
-        # 確認ボタン
         if st.button("✅ この店舗で合っています。診断を進める", type="primary", use_container_width=True):
             with st.spinner("この店舗のGBPとして精密診断中..."):
                 system_prompt = f"""あなたはGoogle Business Profileの最高位専門家です。
@@ -118,7 +125,7 @@ if st.session_state.current_tab == "gbp":
                 result = res.choices[0].message.content
 
             st.success(f"✅ **{store_name}** の診断完了！")
-            st.markdown(result)
+            st.markdown(f'<div class="result-text">{result}</div>', unsafe_allow_html=True)
 
             today = datetime.now().strftime("%Y%m%d_%H%M")
             st.download_button("📄 診断結果をダウンロード", result, f"GBP診断_{today}.html", "text/html")
