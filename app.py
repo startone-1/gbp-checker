@@ -16,9 +16,10 @@ if "authenticated" not in st.session_state:
 
 st.set_page_config(page_title="GBPチェックアプリ", page_icon="💼", layout="centered")
 
-# 目立つ切り替えUI
+# 目立つ切り替えUI（変更なし）
 st.markdown("""
 <style>
+    .main {background-color: #0a0f1c;}
     .big-tab {
         width: 100%;
         padding: 35px 25px;
@@ -39,6 +40,16 @@ st.markdown("""
     .big-tab-inactive {
         background: #1e2937;
         color: #94a3b8;
+    }
+    /* スマホでのテキスト読みやすさ大幅強化 */
+    .result-text p, .result-text li, .result-text h1, .result-text h2 {
+        line-height: 1.85 !important;
+        margin-bottom: 18px !important;
+        font-size: 1.05rem !important;
+    }
+    @media (max-width: 768px) {
+        .big-tab { font-size: 1.4rem; padding: 28px 20px; }
+        .result-text p, .result-text li { font-size: 1.02rem !important; line-height: 1.9 !important; }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -74,8 +85,7 @@ if st.session_state.current_tab == "gbp":
     text_info = st.text_area("追加テキスト情報（任意）", height=150)
 
     if maps_url:
-        with st.spinner("リンクを展開して本格診断中..."):
-            # 短縮リンク展開
+        with st.spinner("リンクを展開して診断中..."):
             if "maps.app.goo.gl" in maps_url:
                 try:
                     r = requests.get(maps_url, allow_redirects=True, timeout=10)
@@ -83,37 +93,30 @@ if st.session_state.current_tab == "gbp":
                 except:
                     pass
 
-            # まず店舗名を抽出
-            name_prompt = f"""このGoogle Mapsリンクから正確な店舗名を抽出してください：
-{maps_url}
-「店舗名: XXX」の形式で答えてください。"""
-            name_res = client.chat.completions.create(model="meta-llama/llama-4-maverick-17b-128e-instruct", messages=[{"role": "user", "content": name_prompt}], max_tokens=100, temperature=0.0)
-            store_name = name_res.choices[0].message.content.strip().replace("店舗名: ", "")
-
             system_prompt = f"""あなたはGoogle Business Profileの最高位専門家です。
 
-**店舗名: {store_name}**
+このGoogle Mapsリンクの店舗を徹底的に詳細に分析してください：
+{maps_url}
 
-この特定の店舗のGBPを、**本当にこの店舗の状況をしっかり見て**徹底的に詳細に分析してください。
-一般的なアドバイスは一切禁止。この店舗固有の状況に基づいた具体的なアドバイスだけを出してください。
+まず最初に**実際の店舗名**を明確に書いてから分析を始めてください。
 
 出力形式（各項目を長く詳細に）：
 1. 総合スコア: XX/100点 - 一言評価
 2. 規約違反チェック
-3. 即修正できる具体的な改善案（この店舗に合わせた具体的な提案）
-4. 改善優先順位トップ5（この店舗固有の理由を詳しく）
-5. 先進施策（合法的なもののみ・この店舗に合わせた具体的な提案）
+3. 即修正できる具体的な改善案
+4. 改善優先順位トップ5
+5. 先進施策（合法的なもののみ）
 
 最後に免責事項を必ず入れてください。"""
 
             messages = [{"role": "system", "content": system_prompt}]
             if text_info.strip():
                 messages.append({"role": "user", "content": f"追加情報:\n{text_info}"})
-            res = client.chat.completions.create(model="meta-llama/llama-4-maverick-17b-128e-instruct", messages=messages, max_tokens=4200, temperature=0.3)
+            res = client.chat.completions.create(model="meta-llama/llama-4-maverick-17b-128e-instruct", messages=messages, max_tokens=4000, temperature=0.3)
             result = res.choices[0].message.content
 
-        st.success(f"✅ **{store_name}** の診断完了！")
-        st.markdown(result)
+        st.success("✅ 診断完了！")
+        st.markdown(f'<div class="result-text">{result}</div>', unsafe_allow_html=True)
 
         today = datetime.now().strftime("%Y%m%d_%H%M")
         st.download_button("📄 診断結果をダウンロード", result, f"GBP診断_{today}.html", "text/html")
