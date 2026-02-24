@@ -16,7 +16,7 @@ if "authenticated" not in st.session_state:
 
 st.set_page_config(page_title="GBPチェックアプリ", page_icon="💼", layout="centered")
 
-# スマホでも崩れないクールデザイン
+# 目立つ切り替えUI（変更なし）
 st.markdown("""
 <style>
     .main {background-color: #0a0f1c;}
@@ -40,21 +40,6 @@ st.markdown("""
     .big-tab-inactive {
         background: #1e2937;
         color: #94a3b8;
-    }
-    /* スマホ専用修正 */
-    @media (max-width: 768px) {
-        .big-tab { 
-            font-size: 1.4rem; 
-            padding: 28px 18px; 
-            margin-bottom: 18px;
-        }
-        .stTextInput, .stTextArea, .stButton {
-            margin-bottom: 18px;
-        }
-        .result-text p, .result-text li {
-            line-height: 1.85 !important;
-            font-size: 1.02rem !important;
-        }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -89,8 +74,9 @@ if st.session_state.current_tab == "gbp":
 
     text_info = st.text_area("追加テキスト情報（任意）", height=150)
 
+    # URL入力されたら自動で店舗名抽出
     if maps_url:
-        with st.spinner("リンクを展開して診断中..."):
+        with st.spinner("リンクから店舗名を抽出中..."):
             if "maps.app.goo.gl" in maps_url:
                 try:
                     r = requests.get(maps_url, allow_redirects=True, timeout=10)
@@ -98,12 +84,23 @@ if st.session_state.current_tab == "gbp":
                 except:
                     pass
 
-            system_prompt = f"""あなたはGoogle Business Profileの最高位専門家です。
-
-このGoogle Mapsリンクの店舗を徹底的に詳細に分析してください：
+            name_prompt = f"""このGoogle Mapsリンクから正確な店舗名を抽出してください：
 {maps_url}
+「店舗名: XXX」の形式で答えてください。"""
+            name_res = client.chat.completions.create(model="meta-llama/llama-4-maverick-17b-128e-instruct", messages=[{"role": "user", "content": name_prompt}], max_tokens=100, temperature=0.0)
+            store_name = name_res.choices[0].message.content.strip().replace("店舗名: ", "")
 
-まず最初に**実際の店舗名**を明確に書いてから分析を始めてください。
+        st.success("✅ 店舗名を抽出しました")
+        st.info(f"**抽出された店舗名**\n{store_name}")
+
+        # 確認ボタン
+        if st.button("✅ この店舗で合っています。診断を進める", type="primary", use_container_width=True):
+            with st.spinner("この店舗のGBPとして精密診断中..."):
+                system_prompt = f"""あなたはGoogle Business Profileの最高位専門家です。
+
+店舗名: **{store_name}**
+
+この特定の店舗のGBPを徹底的に詳細に分析してください。
 
 出力形式（各項目を長く詳細に）：
 1. 総合スコア: XX/100点 - 一言評価
@@ -114,17 +111,17 @@ if st.session_state.current_tab == "gbp":
 
 最後に免責事項を必ず入れてください。"""
 
-            messages = [{"role": "system", "content": system_prompt}]
-            if text_info.strip():
-                messages.append({"role": "user", "content": f"追加情報:\n{text_info}"})
-            res = client.chat.completions.create(model="meta-llama/llama-4-maverick-17b-128e-instruct", messages=messages, max_tokens=4000, temperature=0.3)
-            result = res.choices[0].message.content
+                messages = [{"role": "system", "content": system_prompt}]
+                if text_info.strip():
+                    messages.append({"role": "user", "content": f"追加情報:\n{text_info}"})
+                res = client.chat.completions.create(model="meta-llama/llama-4-maverick-17b-128e-instruct", messages=messages, max_tokens=4000, temperature=0.3)
+                result = res.choices[0].message.content
 
-        st.success("✅ 診断完了！")
-        st.markdown(result)
+            st.success(f"✅ **{store_name}** の診断完了！")
+            st.markdown(result)
 
-        today = datetime.now().strftime("%Y%m%d_%H%M")
-        st.download_button("📄 診断結果をダウンロード", result, f"GBP診断_{today}.html", "text/html")
+            today = datetime.now().strftime("%Y%m%d_%H%M")
+            st.download_button("📄 診断結果をダウンロード", result, f"GBP診断_{today}.html", "text/html")
 
 # ==================== レビュー返信アシスタント ====================
 if st.session_state.current_tab == "review":
