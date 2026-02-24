@@ -17,17 +17,17 @@ if "authenticated" not in st.session_state:
 
 st.set_page_config(page_title="GBPチェックアプリ", page_icon="💼", layout="centered")
 
-# シンプルで安定したデザイン（スマホ崩れを最小限に）
+# 安定したデザイン
 st.markdown("""
 <style>
     .main {background-color: #0a0f1c;}
     .big-tab {
         width: 100%;
-        padding: 32px 20px;
-        font-size: 1.6rem;
+        padding: 35px 25px;
+        font-size: 1.65rem;
         font-weight: 700;
-        border-radius: 18px;
-        margin-bottom: 20px;
+        border-radius: 20px;
+        margin-bottom: 22px;
         text-align: center;
     }
     .big-tab-active {
@@ -39,7 +39,7 @@ st.markdown("""
         color: #94a3b8;
     }
     @media (max-width: 768px) {
-        .big-tab { font-size: 1.35rem; padding: 25px 15px; }
+        .big-tab { font-size: 1.4rem; padding: 28px 20px; }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -58,7 +58,7 @@ if "current_tab" not in st.session_state:
     st.session_state.current_tab = "gbp"
 
 st.markdown(f"""
-<div style="display:flex; gap:15px; margin-bottom:35px;">
+<div style="display:flex; gap:20px; margin-bottom:40px;">
     <div class="big-tab {'big-tab-active' if st.session_state.current_tab == 'gbp' else 'big-tab-inactive'}">🔗 GBP診断</div>
     <div class="big-tab {'big-tab-active' if st.session_state.current_tab == 'review' else 'big-tab-inactive'}">💬 レビュー返信アシスタント</div>
 </div>
@@ -72,7 +72,7 @@ if st.session_state.current_tab == "gbp":
     maps_url = st.text_input("Google Mapsの店舗リンクを貼り付けてください（短縮リンクも自動対応）", 
                             placeholder="https://maps.app.goo.gl/xxxxxx", key="maps_url")
 
-    text_info = st.text_area("追加テキスト情報（任意）", height=120)
+    text_info = st.text_area("追加テキスト情報（任意）", height=150)
 
     if maps_url:
         with st.spinner("リンクを展開して店舗名を抽出中..."):
@@ -92,10 +92,10 @@ if st.session_state.current_tab == "gbp":
         st.success("✅ 店舗名を抽出しました")
         st.info(f"**抽出された店舗名**\n**{store_name}**")
 
-        # 確認画面にリンクを表示
+        # 確認用リンク（新しいタブで開く）
         st.markdown(f"""
         **この店舗のGoogle Mapsページ**  
-        [📍 {store_name} のページを開く]({maps_url})
+        <a href="{maps_url}" target="_blank" rel="noopener noreferrer">📍 {store_name} のGBPページを開く</a>
         """, unsafe_allow_html=True)
 
         if st.button("✅ この店舗で合っています。診断を進める", type="primary", use_container_width=True):
