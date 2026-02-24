@@ -17,7 +17,7 @@ if "authenticated" not in st.session_state:
 
 st.set_page_config(page_title="GBPチェックアプリ", page_icon="💼", layout="centered")
 
-# 以前の安定したレスポンシブデザインを維持
+# スマホで崩れにくい安定したデザイン（以前の状態を維持）
 st.markdown("""
 <style>
     .main {background-color: #0a0f1c;}
@@ -96,11 +96,12 @@ if st.session_state.current_tab == "gbp":
         st.success("✅ 店舗名を抽出しました")
         st.info(f"**抽出された店舗名**\n**{store_name}**")
 
-        # 確認画面にクリックできるリンクを表示（新しいタブで開く）
-        st.markdown(f"""
-        **この店舗のGoogle Mapsページ**  
-        <a href="{maps_url}" target="_blank" rel="noopener noreferrer">📍 {store_name} のGBPページを開く</a>
-        """, unsafe_allow_html=True)
+        # 確認画面に外部リンクボタンを表示（新しいタブで確実に開く）
+        st.link_button(
+            label=f"📍 {store_name} のGoogle Mapsページを開く",
+            url=maps_url,
+            use_container_width=True
+        )
 
         if st.button("✅ この店舗で合っています。診断を進める", type="primary", use_container_width=True):
             with st.spinner("この店舗のGBPとして精密診断中..."):
