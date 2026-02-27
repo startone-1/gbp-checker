@@ -2,6 +2,35 @@ import streamlit as st
 from groq import Groq
 from datetime import datetime
 import requests
+import re
+from urllib.parse import urlparse
+
+# ====================== 高精度Website抽出関数（核心修正） ======================
+def extract_website_from_maps(html: str) -> str | None:
+    """Google MapsページからWebsite欄のURLを高精度で抽出"""
+    patterns = [
+        # JSON内のwebsiteフィールド（最も頻出）
+        r'"website"\s*:\s*"([^"]+)"',
+        r'\\"website\\":\\"([^\\"]+)"',
+        r'"[Ww]ebsite"\s*:\s*"([^"]+)"',
+        
+        # data-tooltipパターン（英語・日本語両対応）
+        r'data-tooltip=["\'](?:Open website|ウェブサイトを開く)["\'].*?href=["\']([^"\']+)["\']',
+        r'href=["\']([^"\']+)["\'].*?data-tooltip=["\'](?:Open website|ウェブサイトを開く)["\']',
+        
+        # その他フォールバック
+        r'"url"\s*:\s*"([^"]+)"\s*,\s*"type"\s*:\s*"website"',
+    ]
+   
+    for pattern in patterns:
+        match = re.search(pattern, html, re.IGNORECASE | re.DOTALL)
+        if match:
+            url = match.group(1).strip()
+            # エスケープ解除
+            url = url.replace('\\u002F', '/').replace('\\\\', '\\')
+            if url.startswith('http'):
+                return url
+    return None
 
 # パスワード認証
 if "authenticated" not in st.session_state:
@@ -49,11 +78,9 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 col1, col2 = st.columns(2)
-
 with col1:
     if st.button("🔗 GBP診断", use_container_width=True, key="tab_gbp"):
         st.session_state.current_tab = "gbp"
-
 with col2:
     if st.button("💬 レビュー返信アシスタント", use_container_width=True, key="tab_review"):
         st.session_state.current_tab = "review"
@@ -73,26 +100,62 @@ client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 # ==================== GBP診断 ====================
 if st.session_state.current_tab == "gbp":
     st.subheader("🔗 Google Maps URLから診断")
-    maps_url = st.text_input("Google Mapsの店舗リンクを貼り付けてください（短縮リンクも自動対応）", 
+    maps_url = st.text_input("Google Mapsの店舗リンクを貼り付けてください（短縮リンクも自動対応）",
                             placeholder="https://maps.app.goo.gl/xxxxxx", key="maps_url")
-
+    
     if maps_url:
         with st.spinner("リンクを展開して診断中..."):
+            # 短縮リンク展開
             if "maps.app.goo.gl" in maps_url:
                 try:
                     r = requests.get(maps_url, allow_redirects=True, timeout=10)
                     maps_url = r.url
                 except:
                     pass
-
+            
+            # ===== ここが核心修正：高精度Website抽出 =====
+            violation_text = ""
+            try:
+                headers = {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36"
+                }
+                response = requests.get(maps_url, headers=headers, allow_redirects=True, timeout=15)
+                html = response.text
+                website = extract_website_from_maps(html)
+                
+                if website:
+                    domain = urlparse(website).netloc.lower()
+                    forbidden_domains = {
+                        'instagram.com', 'www.instagram.com',
+                        'facebook.com', 'www.facebook.com', 'fb.com',
+                        'hotpepper.jp', 'www.hotpepper.jp',
+                        'tabelog.com', 'www.tabelog.com',
+                        'gurunavi.com', 'www.gurunavi.com',
+                        'retty.me', 'www.retty.me',
+                        'omakase.in',
+                        'line.me', 'liff.line.me',
+                    }
+                    is_violation = any(fd in domain for fd in forbidden_domains)
+                    
+                    if is_violation:
+                        violation_text = f"❌ **重大規約違反検出**\n店舗URL欄：**{website}**\n→ Instagram/Facebook/食べログ系は公式HPとして使用禁止です。\nGoogleガイドライン違反によりアカウント凍結リスクがあります！即時修正を強く推奨します。"
+                    else:
+                        violation_text = f"✅ URL欄は問題なし（{website}）"
+                else:
+                    violation_text = "⚠️ URL欄が空または検出できませんでした（手動でGoogle Mapsを開いて確認してください）"
+            except Exception as e:
+                violation_text = f"⚠️ URL抽出中にエラーが発生しました（{str(e)}）\n手動確認をおすすめします。"
+            
+            # LLMに正確な抽出結果を渡して診断させる
             system_prompt = f"""あなたはGoogle Business Profile公式Product Experts Programの全階層の知見を総合した最高位の専門家です。
-
-このGoogle Mapsリンクの店舗を、**本当にこの店舗をしっかり見て**徹底的に詳細に分析してください：
+このGoogle Mapsリンクの店舗を徹底的に詳細に分析してください：
 {maps_url}
 
+【高精度解析済み・最重要情報】
+{violation_text}
+
 **特に厳密にチェックすること**：
-- 店舗URLの項目に公式ホームページ以外のURLが入っていないか
-- 具体的に「Instagram.com」「Facebook.com」「hotpepper.jp」「gurunavi.com」「tabelog.com」などのSNS・グルメ予約サイトのURLが含まれていないか
+- 上記の抽出結果を絶対に無視せず、店舗URLの項目に公式ホームページ以外のURLが入っていないかを最終確認
 - 違反があれば、実際に入っているURLを具体的にリストアップして赤字で強い警告を出す
 
 出力形式（各項目を長く、じっくり、細かく書いてください）：
@@ -103,14 +166,27 @@ if st.session_state.current_tab == "gbp":
 5. 先進施策（合法的なもののみ・この店舗に合わせた具体的な提案）
 
 最後に免責事項を必ず入れてください。"""
-
+            
             messages = [{"role": "system", "content": system_prompt}]
-            res = client.chat.completions.create(model="meta-llama/llama-4-maverick-17b-128e-instruct", messages=messages, max_tokens=4800, temperature=0.3)
+            res = client.chat.completions.create(
+                model="meta-llama/llama-4-maverick-17b-128e-instruct", 
+                messages=messages, 
+                max_tokens=4800, 
+                temperature=0.3
+            )
             result = res.choices[0].message.content
-
+        
+        # 抽出結果を最初に目立つように表示（信頼性大幅UP）
+        if "重大規約違反検出" in violation_text:
+            st.error(violation_text)
+        elif "問題なし" in violation_text:
+            st.success(violation_text)
+        else:
+            st.warning(violation_text)
+        
         st.success("✅ 診断完了！")
         st.markdown(result)
-
+        
         today = datetime.now().strftime("%Y%m%d_%H%M")
         st.download_button("📄 診断結果をダウンロード", result, f"GBP診断_{today}.html", "text/html")
 
@@ -118,29 +194,26 @@ if st.session_state.current_tab == "gbp":
 if st.session_state.current_tab == "review":
     st.subheader("💬 レビュー返信アシスタント")
     st.write("お客様のレビューを貼り付けてください。GBPガイドラインに完全に準拠した誠実な返信文を複数パターン作成します。")
-
     review_text = st.text_area("お客様からのレビューを貼り付けてください", height=180, placeholder="例：対応が遅くて残念でした...")
     review_type = st.radio("レビューの種類", ["悪いレビュー（丁寧に対応したい）", "良いレビュー（感謝を伝えたい）"])
-
     if st.button("🚀 返信文を作成する", type="primary", use_container_width=True):
         if not review_text:
             st.error("レビューを入力してください")
             st.stop()
-
         with st.spinner("GBPガイドラインに準拠した返信文を作成中..."):
             prompt = f"""あなたはGBPの最高位専門家です。
 以下のレビューに対して、誠実で丁寧でGoogleガイドラインに完全に準拠した返信文を**3パターン**作成してください。
-
 レビュー：
 {review_text}
-
 種類：{review_type}
-
 各パターンを「パターン1」「パターン2」「パターン3」として明確に分けて出力してください。"""
-
-            res = client.chat.completions.create(model="meta-llama/llama-4-maverick-17b-128e-instruct", messages=[{"role": "system", "content": prompt}], max_tokens=1500, temperature=0.5)
+            res = client.chat.completions.create(
+                model="meta-llama/llama-4-maverick-17b-128e-instruct", 
+                messages=[{"role": "system", "content": prompt}], 
+                max_tokens=1500, 
+                temperature=0.5
+            )
             reply = res.choices[0].message.content
-
         st.success("✅ 返信文を作成しました")
         st.markdown(reply)
 
@@ -148,7 +221,6 @@ if st.session_state.current_tab == "review":
 st.markdown("---")
 st.subheader("📩 もっとサポートが必要ですか？")
 st.write("以下の内容でサポートいたします。お気軽にご連絡ください。")
-
 st.write("""
 **よくあるサポート依頼例**
 - GBPの運用をまるごと任せたい
@@ -159,7 +231,6 @@ st.write("""
 - 写真撮影や投稿戦略のアドバイスが欲しい
 - その他、GBPに関する相談全般
 """)
-
 st.markdown(f"""
 <div style="text-align:center; margin:30px 0;">
     <a href="mailto:gyoum2024@gmail.com?subject=GBP運用サポートのお問い合わせ" target="_blank">
@@ -169,5 +240,4 @@ st.markdown(f"""
     </a>
 </div>
 """, unsafe_allow_html=True)
-
 st.caption("Powered by Groq | 04.sampleapp.work")
