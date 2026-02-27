@@ -5,20 +5,15 @@ import requests
 import re
 from urllib.parse import urlparse
 
-# ====================== 高精度Website抽出関数（核心修正） ======================
+# ====================== 高精度Website抽出関数 ======================
 def extract_website_from_maps(html: str) -> str | None:
     """Google MapsページからWebsite欄のURLを高精度で抽出"""
     patterns = [
-        # JSON内のwebsiteフィールド（最も頻出）
         r'"website"\s*:\s*"([^"]+)"',
         r'\\"website\\":\\"([^\\"]+)"',
         r'"[Ww]ebsite"\s*:\s*"([^"]+)"',
-        
-        # data-tooltipパターン（英語・日本語両対応）
         r'data-tooltip=["\'](?:Open website|ウェブサイトを開く)["\'].*?href=["\']([^"\']+)["\']',
         r'href=["\']([^"\']+)["\'].*?data-tooltip=["\'](?:Open website|ウェブサイトを開く)["\']',
-        
-        # その他フォールバック
         r'"url"\s*:\s*"([^"]+)"\s*,\s*"type"\s*:\s*"website"',
     ]
    
@@ -26,7 +21,6 @@ def extract_website_from_maps(html: str) -> str | None:
         match = re.search(pattern, html, re.IGNORECASE | re.DOTALL)
         if match:
             url = match.group(1).strip()
-            # エスケープ解除
             url = url.replace('\\u002F', '/').replace('\\\\', '\\')
             if url.startswith('http'):
                 return url
@@ -46,7 +40,7 @@ if "authenticated" not in st.session_state:
 
 st.set_page_config(page_title="GBPチェックアプリ", page_icon="💼", layout="centered")
 
-# 現在の安定したレスポンシブデザインを維持
+# デザイン維持
 st.markdown("""
 <style>
     .main {background-color: #0a0f1c;}
@@ -113,7 +107,7 @@ if st.session_state.current_tab == "gbp":
                 except:
                     pass
             
-            # ===== ここが核心修正：高精度Website抽出 =====
+            # ===== 高精度Website抽出 + 違反判定 =====
             violation_text = ""
             try:
                 headers = {
@@ -134,11 +128,13 @@ if st.session_state.current_tab == "gbp":
                         'retty.me', 'www.retty.me',
                         'omakase.in',
                         'line.me', 'liff.line.me',
+                        'gourmet.jp', 'www.gourmet.jp',   # ← 今回追加（このURLで検出されたもの）
                     }
+                    
                     is_violation = any(fd in domain for fd in forbidden_domains)
                     
                     if is_violation:
-                        violation_text = f"❌ **重大規約違反検出**\n店舗URL欄：**{website}**\n→ Instagram/Facebook/食べログ系は公式HPとして使用禁止です。\nGoogleガイドライン違反によりアカウント凍結リスクがあります！即時修正を強く推奨します。"
+                        violation_text = f"❌ **重大規約違反検出**\n店舗URL欄：**{website}**\n→ Instagram/Facebook/食べログ/ぐるなび/グルメ.jp系は公式HPとして使用禁止です。\nGoogleガイドライン違反によりアカウント凍結リスク大！即時修正を強く推奨します。"
                     else:
                         violation_text = f"✅ URL欄は問題なし（{website}）"
                 else:
@@ -146,7 +142,7 @@ if st.session_state.current_tab == "gbp":
             except Exception as e:
                 violation_text = f"⚠️ URL抽出中にエラーが発生しました（{str(e)}）\n手動確認をおすすめします。"
             
-            # LLMに正確な抽出結果を渡して診断させる
+            # LLMに正確な抽出結果を強制注入
             system_prompt = f"""あなたはGoogle Business Profile公式Product Experts Programの全階層の知見を総合した最高位の専門家です。
 このGoogle Mapsリンクの店舗を徹底的に詳細に分析してください：
 {maps_url}
@@ -176,7 +172,7 @@ if st.session_state.current_tab == "gbp":
             )
             result = res.choices[0].message.content
         
-        # 抽出結果を最初に目立つように表示（信頼性大幅UP）
+        # 抽出結果を最初に大きく表示
         if "重大規約違反検出" in violation_text:
             st.error(violation_text)
         elif "問題なし" in violation_text:
