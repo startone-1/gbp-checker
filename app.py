@@ -73,60 +73,44 @@ client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 # ==================== GBP診断 ====================
 if st.session_state.current_tab == "gbp":
     st.subheader("🔗 Google Maps URLから診断")
-    maps_url = st.text_input("Google Mapsの短縮リンクを貼り付けてください", 
+    maps_url = st.text_input("Google Mapsの店舗リンクを貼り付けてください（短縮リンクも自動対応）", 
                             placeholder="https://maps.app.goo.gl/xxxxxx", key="maps_url")
 
     if maps_url:
-        if not maps_url.startswith("https://maps.app.goo.gl"):
-            st.error("❌ maps.app.goo.gl の短縮リンクのみ対応しています。他のURLは使用できません。")
-        else:
-            with st.spinner("リンクを展開して店舗名を抽出中..."):
+        with st.spinner("リンクを展開して診断中..."):
+            if "maps.app.goo.gl" in maps_url:
                 try:
                     r = requests.get(maps_url, allow_redirects=True, timeout=10)
                     maps_url = r.url
                 except:
                     pass
 
-                name_prompt = f"""このGoogle Mapsリンクから正確な店舗名を抽出してください：
+            system_prompt = f"""あなたはGoogle Business Profile公式Product Experts Programの全階層の知見を総合した最高位の専門家です。
+
+このGoogle Mapsリンクの店舗を、**本当にこの店舗をしっかり見て**徹底的に詳細に分析してください：
 {maps_url}
-「店舗名: XXX」の形式で答えてください。"""
-                name_res = client.chat.completions.create(model="meta-llama/llama-4-maverick-17b-128e-instruct", messages=[{"role": "user", "content": name_prompt}], max_tokens=100, temperature=0.0)
-                store_name = name_res.choices[0].message.content.strip().replace("店舗名: ", "")
 
-            st.success("✅ 店舗名を抽出しました")
-            st.info(f"**抽出された店舗名**\n**{store_name}**")
+**特に厳密にチェックすること**：
+- 店舗URLの項目にInstagram.com、Facebook.com、ホットペッパー、グルナビ、食べログなどのSNS・予約サイトURLが入っていないか（これは明確な規約違反でアカウント凍結のリスクが非常に高い）
 
-            st.markdown(f"""
-            **この店舗のGoogle Mapsページ**  
-            [📍 {store_name} のGBPページを開く]({maps_url})
-            """, unsafe_allow_html=True)
-
-            if st.button("✅ この店舗で合っています。診断を進める", type="primary", use_container_width=True):
-                with st.spinner("この店舗のGBPとして精密診断中..."):
-                    system_prompt = f"""あなたはGoogle Business Profileの最高位専門家です。
-
-店舗名: **{store_name}**
-
-この特定の店舗のGBPを徹底的に詳細に分析してください。
-
-出力形式（各項目を長く詳細に）：
+出力形式（各項目を長く、じっくり、細かく書いてください）：
 1. 総合スコア: XX/100点 - 一言評価
-2. 規約違反チェック
-3. 即修正できる具体的な改善案
-4. 改善優先順位トップ5
-5. 先進施策（合法的なもののみ）
+2. 規約違反チェック（特に店舗URLの項目を厳密に確認し、違反があれば赤字で強い警告 + 凍結リスクを明記）
+3. 即修正できる具体的な改善案（この店舗に合わせた具体的な提案、コピペOK文例を複数付きで長く）
+4. 改善優先順位トップ5（この店舗固有の理由を詳しく）
+5. 先進施策（合法的なもののみ・この店舗に合わせた具体的な提案）
 
 最後に免責事項を必ず入れてください。"""
 
-                    messages = [{"role": "system", "content": system_prompt}]
-                    res = client.chat.completions.create(model="meta-llama/llama-4-maverick-17b-128e-instruct", messages=messages, max_tokens=4000, temperature=0.3)
-                    result = res.choices[0].message.content
+            messages = [{"role": "system", "content": system_prompt}]
+            res = client.chat.completions.create(model="meta-llama/llama-4-maverick-17b-128e-instruct", messages=messages, max_tokens=4800, temperature=0.3)
+            result = res.choices[0].message.content
 
-                st.success(f"✅ **{store_name}** の診断完了！")
-                st.markdown(result)
+        st.success("✅ 診断完了！")
+        st.markdown(result)
 
-                today = datetime.now().strftime("%Y%m%d_%H%M")
-                st.download_button("📄 診断結果をダウンロード", result, f"GBP診断_{today}.html", "text/html")
+        today = datetime.now().strftime("%Y%m%d_%H%M")
+        st.download_button("📄 診断結果をダウンロード", result, f"GBP診断_{today}.html", "text/html")
 
 # ==================== レビュー返信アシスタント ====================
 if st.session_state.current_tab == "review":
