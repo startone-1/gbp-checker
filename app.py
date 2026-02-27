@@ -92,7 +92,7 @@ if st.session_state.current_tab == "gbp":
 
 **特に厳密にチェックすること**：
 - 店舗URLの項目に公式ホームページ以外のURL（Instagram.com、Facebook.com、hotpepper.jp、gurunavi.com、tabelog.comなど）が1つでも入っていないか
-- 入っている場合は明確な規約違反として強く指摘
+- 入っている場合は、具体的にどのURLが入っているかをリストアップして、赤字レベルの強い警告を出す
 
 出力形式（各項目を長く、じっくり、細かく書いてください）：
 1. 総合スコア: XX/100点 - 一言評価
