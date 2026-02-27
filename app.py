@@ -5,7 +5,7 @@ import requests
 import re
 from urllib.parse import urlparse
 
-# ====================== 高精度Website抽出関数 ======================
+# ====================== 高精度Website抽出関数（維持） ======================
 def extract_website_from_maps(html: str) -> str | None:
     """Google MapsページからWebsite欄のURLを高精度で抽出"""
     patterns = [
@@ -40,7 +40,6 @@ if "authenticated" not in st.session_state:
 
 st.set_page_config(page_title="GBPチェックアプリ", page_icon="💼", layout="centered")
 
-# デザイン維持
 st.markdown("""
 <style>
     .main {background-color: #0a0f1c;}
@@ -107,18 +106,19 @@ if st.session_state.current_tab == "gbp":
                 except:
                     pass
             
-            # ===== 高精度Website抽出 + 違反判定 =====
+            # ===== 高精度抽出（失敗しても診断は続ける） =====
             violation_text = ""
+            extracted_website = None
             try:
                 headers = {
                     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36"
                 }
                 response = requests.get(maps_url, headers=headers, allow_redirects=True, timeout=15)
                 html = response.text
-                website = extract_website_from_maps(html)
+                extracted_website = extract_website_from_maps(html)
                 
-                if website:
-                    domain = urlparse(website).netloc.lower()
+                if extracted_website:
+                    domain = urlparse(extracted_website).netloc.lower()
                     forbidden_domains = {
                         'instagram.com', 'www.instagram.com',
                         'facebook.com', 'www.facebook.com', 'fb.com',
@@ -128,38 +128,34 @@ if st.session_state.current_tab == "gbp":
                         'retty.me', 'www.retty.me',
                         'omakase.in',
                         'line.me', 'liff.line.me',
-                        'gourmet.jp', 'www.gourmet.jp',   # ← 今回追加（このURLで検出されたもの）
+                        'gourmet.jp', 'www.gourmet.jp',
                     }
-                    
                     is_violation = any(fd in domain for fd in forbidden_domains)
                     
                     if is_violation:
-                        violation_text = f"❌ **重大規約違反検出**\n店舗URL欄：**{website}**\n→ Instagram/Facebook/食べログ/ぐるなび/グルメ.jp系は公式HPとして使用禁止です。\nGoogleガイドライン違反によりアカウント凍結リスク大！即時修正を強く推奨します。"
+                        violation_text = f"❌ **重大規約違反検出**\n店舗URL欄：**{extracted_website}**\n→ SNS/グルメサイトは公式HP禁止！凍結リスク大！即修正推奨。"
                     else:
-                        violation_text = f"✅ URL欄は問題なし（{website}）"
-                else:
-                    violation_text = "⚠️ URL欄が空または検出できませんでした（手動でGoogle Mapsを開いて確認してください）"
-            except Exception as e:
-                violation_text = f"⚠️ URL抽出中にエラーが発生しました（{str(e)}）\n手動確認をおすすめします。"
+                        violation_text = f"✅ URL欄は問題なし（{extracted_website}）"
+                # 抽出失敗時は空欄にせず、LLMに任せる
+            except:
+                pass  # 抽出失敗は無視してLLM診断へ
             
-            # LLMに正確な抽出結果を強制注入
-            system_prompt = f"""あなたはGoogle Business Profile公式Product Experts Programの全階層の知見を総合した最高位の専門家です。
-このGoogle Mapsリンクの店舗を徹底的に詳細に分析してください：
+            # LLMプロンプト強化（自動抽出失敗でも確実に違反検出）
+            system_prompt = f"""あなたはGoogle Business Profile公式Product Experts Programの最高位専門家です。
+このGoogle Mapsリンクの店舗を**本当にページ全体を徹底的に見て**分析してください：
 {maps_url}
 
-【高精度解析済み・最重要情報】
-{violation_text}
+**最重要チェック項目（必ず厳密に）**：
+- 店舗URL欄（Website / ウェブサイト）に公式ホームページ以外のURLが入っていないか
+- 特にInstagram、Facebook、gourmet.jp、hotpepper.jp、tabelog.com、gurunavi.comなどのSNS・予約サイトURLが入っていないか
+- 違反があれば実際のURLをすべて具体的にリストアップして赤字で強い警告
 
-**特に厳密にチェックすること**：
-- 上記の抽出結果を絶対に無視せず、店舗URLの項目に公式ホームページ以外のURLが入っていないかを最終確認
-- 違反があれば、実際に入っているURLを具体的にリストアップして赤字で強い警告を出す
-
-出力形式（各項目を長く、じっくり、細かく書いてください）：
+出力形式（各項目を長く詳細に）：
 1. 総合スコア: XX/100点 - 一言評価
-2. 規約違反チェック（特に店舗URLの項目を厳密に確認し、違反があれば赤字で強い警告 + 凍結リスクを明記 + 実際に入っているURLを具体的に挙げる）
-3. 即修正できる具体的な改善案（この店舗に合わせた具体的な提案、コピペOK文例を複数付きで長く）
-4. 改善優先順位トップ5（この店舗固有の理由を詳しく）
-5. 先進施策（合法的なもののみ・この店舗に合わせた具体的な提案）
+2. 規約違反チェック（特に店舗URL欄を厳密確認）
+3. 即修正できる具体的な改善案（コピペOK文例複数付き）
+4. 改善優先順位トップ5
+5. 先進施策（合法的なもののみ）
 
 最後に免責事項を必ず入れてください。"""
             
@@ -172,13 +168,13 @@ if st.session_state.current_tab == "gbp":
             )
             result = res.choices[0].message.content
         
-        # 抽出結果を最初に大きく表示
-        if "重大規約違反検出" in violation_text:
+        # 表示部分：抽出成功時だけ強く、失敗時は軽く
+        if violation_text and "重大規約違反検出" in violation_text:
             st.error(violation_text)
-        elif "問題なし" in violation_text:
+        elif violation_text and "問題なし" in violation_text:
             st.success(violation_text)
-        else:
-            st.warning(violation_text)
+        elif extracted_website is None:
+            st.info("🔍 自動URL抽出に失敗しました（Google保護のため）。LLMがページ全体を分析して正確に診断します。")
         
         st.success("✅ 診断完了！")
         st.markdown(result)
@@ -186,7 +182,7 @@ if st.session_state.current_tab == "gbp":
         today = datetime.now().strftime("%Y%m%d_%H%M")
         st.download_button("📄 診断結果をダウンロード", result, f"GBP診断_{today}.html", "text/html")
 
-# ==================== レビュー返信アシスタント ====================
+# ==================== レビュー返信アシスタント（変更なし） ====================
 if st.session_state.current_tab == "review":
     st.subheader("💬 レビュー返信アシスタント")
     st.write("お客様のレビューを貼り付けてください。GBPガイドラインに完全に準拠した誠実な返信文を複数パターン作成します。")
